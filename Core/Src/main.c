@@ -17,6 +17,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <st_stimulus.h>
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
