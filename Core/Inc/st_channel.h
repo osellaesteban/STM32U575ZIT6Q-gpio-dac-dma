@@ -22,7 +22,7 @@ typedef enum {
 }st_active_t;
 
 typedef struct 	st_channel{
-	st_stimulus_t stmimulus;
+	st_stimulus_t stimulus;
 	char stLabel[MAX_LABEL];
 	st_active_t stActiveState;
 	uint32_t stPin;

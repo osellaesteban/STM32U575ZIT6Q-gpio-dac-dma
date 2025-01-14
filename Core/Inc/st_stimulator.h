@@ -9,10 +9,8 @@
  *      ToDo:
  *      - Design and implement the HAL regarding the DAC
  *      	and GPIO DMA
- *      - Interface and load operative configurations.
+ *      - Interface and load operative configurations using uart.
  *      - Implement getters.
- *      - Implement stimulus setters.
- *      - Implement default initialization.
  *      - Implement stimulation start and stop functions.
  *      - Test implemented functions.
  */
@@ -25,7 +23,6 @@
 /** own includes **/
 #include "st_channel.h"
 #include "st_definitions.h"
-
 
 
 /** public variables**/
@@ -46,7 +43,8 @@ uint8_t stSetSequence(uint8_t*);
 uint8_t stSetPort(uint32_t);
 uint8_t stSetChannelPin(uint8_t chan,uint32_t port);
 
+uint8_t stSetChannelSignal(uint8_t ch, uint8_t sz, uint16_t* values, uint16_t* signs );
 
-
+uint8_t stConfigureDefault(st_signal_type type);
 
 #endif /* INC_ST_STIMULATOR_H_ */
