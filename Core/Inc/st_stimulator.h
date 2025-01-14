@@ -37,11 +37,39 @@ void stSetGlobalState(st_active_t state);
  * Sets the active state of a particular channel
  */
 uint8_t stSetChannelState(uint8_t channel,st_active_t state);
+
+/**
+ * Assigns a specific label to a channel
+ */
 uint8_t stSetChannelLabel(uint8_t chann, char *label,uint16_t length);
+
+/**
+ * Determines the period, determining the ARR of the timer.
+ * This has to be confirmed when the HAL is finally implemented
+ */
 uint8_t stSetPeriod(uint32_t);
+
+/**
+ * Determines the channel stimulating sequence
+ */
 uint8_t stSetSequence(uint8_t*);
+
+/**
+ * Determines the GPIO port to be used by the stimulator.
+ */
 uint8_t stSetPort(uint32_t);
+
+/**
+ * Determines the GPIO pin to be used to operate the negative port.
+ */
+uint8_t stSetSignPort(uint32_t);
+
+
+/**
+ * Determines the Pin associated with a specific channel.
+ */
 uint8_t stSetChannelPin(uint8_t chan,uint32_t port);
+
 
 uint8_t stSetChannelSignal(uint8_t ch, uint8_t sz, uint16_t* values, uint16_t* signs );
 

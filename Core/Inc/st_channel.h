@@ -12,11 +12,11 @@
 /** Global includes */
 #include <stdint.h>
 
-/** own includes **/
+/** user includes **/
 #include "st_stimulus.h"
 
 
-/** own definitions**/
+/** public structure definitions**/
 typedef enum {
 	st_disabled = 0, st_enabled, st_undefined
 }st_active_t;
@@ -28,7 +28,7 @@ typedef struct 	st_channel{
 	uint32_t stPin;
 }st_channel_t;
 
-/** public variables**/
+/** Public variables**/
 
 /** Public functions **/
 

@@ -2,12 +2,12 @@
  * stimulator.c
  *
  *  Created on: Jan 13, 2025
- *      Author: osell
+ *      Author: Osella Esteban
  */
 #include <st_stimulator.h>
 #include <string.h>
 
-/** own definitions**/
+/** private structure definitions **/
 
 
 typedef struct 	st_stimulator{
@@ -15,6 +15,7 @@ typedef struct 	st_stimulator{
 	uint32_t stPeriod;
 	uint8_t stStimSequence[CHAN_LENGTH];
 	uint32_t stPort;
+	uint32_t stSignPin;
 	st_active_t stGlobalState;
 }st_stimulator_t;
 
@@ -34,6 +35,7 @@ uint8_t pins[CHAN_LENGTH] = {CH0_PIN, CH1_PIN, CH2_PIN, CH3_PIN,
  * new state.
  */
 void stSetGlobalState(st_active_t state){
+
 	stimulator.stGlobalState = state;
 
 }
@@ -96,6 +98,18 @@ uint8_t stSetPort(uint32_t port)
 	return res;
 }
 
+uint8_t stSetSignPin(uint32_t pin)
+{
+	uint8_t res = 0;
+	if (pin < MAX_PIN)
+	{
+		stimulator.stSignPin = pin;
+	}
+	else
+		res--;
+	return res;
+}
+
 uint8_t stSetChannelPin(uint8_t chan,uint32_t pin){
 	uint8_t res = 0;
 	if (chan < CHAN_LENGTH){
@@ -136,12 +150,12 @@ uint8_t stSetChannelSignal(uint8_t ch, uint8_t sz, uint16_t* values, uint16_t* s
 }
 
 uint8_t stConfigureDefault(st_signal_type type){
-	uint8_t ch_it;
+	uint8_t ch_it,res = 0;
 	uint16_t signal[CHAN_LENGTH];
 	uint16_t sign[CHAN_LENGTH];
 
-	stSetPort(DEFAULT_PORT);
-	stSetPeriod(MAX_PERIOD-1);
+	res += stSetPort(DEFAULT_PORT);
+	res += stSetPeriod(MAX_PERIOD-1);
 	stSetGlobalState(st_disabled);
 
 
@@ -164,9 +178,10 @@ uint8_t stConfigureDefault(st_signal_type type){
 	}
 	for (ch_it = 0; ch_it++; ch_it < CHAN_LENGTH){
 		stimulator.stStimSequence[ch_it] = ch_it;
-		stSetChannelSignal(ch_it, MAX_SIGNAL_LENGTH, signal, sign);
-		strlcpy(stimulator.channels[ch_it].stLabel , strcat('Channel ',(char) (ch_it+48)),9);
-		stSetChannelPin(ch_it,pins[ch_it]);
-		stSetChannelState(ch_it, st_disabled);
+		res += stSetChannelSignal(ch_it, MAX_SIGNAL_LENGTH, signal, sign);
+		strlcpy(stimulator.channels[ch_it].stLabel , strcat('Channel ',(char) (ch_it+48)),9); // possibly copying garbage
+		res += stSetChannelPin(ch_it,pins[ch_it]);
+		res += stSetChannelState(ch_it, st_disabled);
 	}
+	return res;
 }

@@ -9,7 +9,7 @@
 #define INC_ST_DEFINITIONS_H_
 #include "stm32u5xx_hal.h"
 #include "stm32u5xx_hal_gpio.h"
-// usign a signal lenth of 128 and 8 channels,
+// using a signal length of 128 and 8 channels,
 // it should take up to 4kb. The uP has up 2Mb, so, it should be
 // determined by the DAC temporal resolution and the AHB usage
 #define MAX_SIGNAL_LENGTH 	128
