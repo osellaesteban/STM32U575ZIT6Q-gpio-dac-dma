@@ -17,12 +17,15 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <st_stimulus.h>
+
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "linked_list.h"
+
+#include <st_stimulus.h>
+#include "st_stimulator.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -140,6 +143,14 @@ int main(void)
  // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, 16, DAC_ALIGN_12B_R);
 
  // HAL_TIM_Base_Start(&htim1);
+
+
+
+  stConfigureDefault(st_ramp);
+  st_active_t state = st_enabled;
+  stSetGlobalState(state);
+  state = st_disabled;
+  stGetGlobalState(&state);
   /* USER CODE END 2 */
 
   /* Initialize leds */
