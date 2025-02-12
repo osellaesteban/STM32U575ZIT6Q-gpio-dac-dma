@@ -121,20 +121,20 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_GPDMA1_Init();
-  MX_ICACHE_Init();
-  MX_DAC1_Init();
-  MX_TIM2_Init();
+  //MX_GPIO_Init();
+  //MX_GPDMA1_Init();
+ // MX_ICACHE_Init();
+ // MX_DAC1_Init();
+ // MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
-  MX_GPIOQueue_Config();
-  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
-
-  MX_DACQueue_Config();
-  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
-  __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
+//  MX_GPIOQueue_Config();
+//  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
+//  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
+//
+//  MX_DACQueue_Config();
+//  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
+//  __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
 
   //HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10); // Notice that this channel is Linearly configured instead of Circular.
 
@@ -146,11 +146,11 @@ int main(void)
 
 
 
-  stConfigureDefault(st_ramp);
-  st_active_t state = st_enabled;
-  stSetGlobalState(state);
-  state = st_disabled;
-  stGetGlobalState(&state);
+//  stConfigureDefault(st_ramp);
+//  st_active_t state = st_enabled;
+//  stSetGlobalState(state);
+//  state = st_disabled;
+//  stGetGlobalState(&state);
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -182,26 +182,28 @@ int main(void)
   BSP_LED_On(LED_BLUE);
   BSP_LED_On(LED_RED);
 
-  HAL_TIM_Base_Start(&htim2);
-/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
-  // GPIOS and DAC output
-  TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
-  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t)GPIOEVals, (uint32_t)&(GPIOC->ODR), 16);
-
-  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t *)DACVals, (uint32_t)&(DAC1->DOR1), 16);
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, NVALS, DAC_ALIGN_12B_R);
-/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
-    HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
-
-
-  DACDMAConfig();
-  HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
-
-  /* USER CODE END BSP */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+//  HAL_TIM_Base_Start(&htim2);
+///*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
+//  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
+//  // GPIOS and DAC output
+//  TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
+//  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t)GPIOEVals, (uint32_t)&(GPIOC->ODR), 16);
+//
+//  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t *)DACVals, (uint32_t)&(DAC1->DOR1), 16);
+// // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, NVALS, DAC_ALIGN_12B_R);
+///*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
+//    HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
+//
+//
+//  DACDMAConfig();
+//  HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
+//
+//  /* USER CODE END BSP */
+//
+//  /* Infinite loop */
+//  /* USER CODE BEGIN WHILE */
+  stInitilize();
+  stStartStimulation();
   while (1)
   {
 

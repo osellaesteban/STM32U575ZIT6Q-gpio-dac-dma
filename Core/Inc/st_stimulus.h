@@ -12,9 +12,9 @@
 #include <st_definitions.h>
 #include <stdint.h>
 typedef struct st_stimulus {
-	uint16_t intensity[MAX_SIGNAL_LENGTH];
-	uint16_t sign[MAX_SIGNAL_LENGTH];
-	uint16_t lastVal;
+	uint32_t intensity[MAX_SIGNAL_LENGTH];
+	uint32_t sign[MAX_SIGNAL_LENGTH];
+	uint32_t lastVal;
 }st_stimulus_t;
 
 #endif /* INC_ST_STIMULUS_H_ */
