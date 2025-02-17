@@ -30,30 +30,35 @@ TIM_HandleTypeDef htim;
 extern uint32_t stDACVals[];
 extern uint32_t stGPIOVals[];
 
+extern uint32_t dvals[];
+extern uint32_t pins[];
+
 extern DMA_QListTypeDef stGPIOQueue;
 extern DMA_QListTypeDef stDACQueue;
 
 
 // Private function declaration
 void st_DACDMAConfig();
-
+void stError_Handler();
 // Function implementations
 
-void st_Iinitilize(){
+void st_HALIinitilize(){
 
 	st_GPIO_Init();
 	st_GPDMA_Init();
 	st_ICACHE_Init();
 	st_DAC_Init();
 	st_TIM_Init();
-	// a partir de aca se caga.
+
 	MX_GPIOQueue_Config();
 	HAL_DMAEx_List_LinkQ(&hGPDMA1_GPIO, &stGPIOQueue);
-	HAL_DMAEx_List_Start(&hGPDMA1_GPIO);
 
 	MX_DACQueue_Config();
 	HAL_DMAEx_List_LinkQ(&hGPDMA1_DAC, &stDACQueue);
+
 	__HAL_LINKDMA(&hdac, DMA_Handle1, hGPDMA1_DAC);
+	HAL_DMAEx_List_Start(&hGPDMA1_GPIO);
+
 }
 
 void st_DMA_Start(){
@@ -76,9 +81,15 @@ void st_DMA_Start(){
 	// HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, NVALS, DAC_ALIGN_12B_R);
 	/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
 	HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
-	st_DACDMAConfig();
 
-	//Review starting from here. Also DAC output is not being shown.
+
+	st_DACDMAConfig();
+	/* Enable DAC selected channel and associated DMA */// &[0] and
+ 	if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, &stDACVals[0], GPIO_DAC_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
+	{
+		/* Start DMA Error */
+		stError_Handler();
+	}
 	HAL_TIM_Base_Start_IT(&htim);//(&htim1, TIM_CHANNEL_1);
 }
 
@@ -98,54 +109,47 @@ void st_GPIO_Init(void){
 		case PORTA:
 			__HAL_RCC_GPIOA_CLK_ENABLE();
 			/*Configure GPIO pin Output Level */
-			HAL_GPIO_WritePin(GPIOA, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOA, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 			break;
 		case PORTB:
 			__HAL_RCC_GPIOB_CLK_ENABLE();
-			HAL_GPIO_WritePin(GPIOB, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOB, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 			break;
 		case PORTC:
 			__HAL_RCC_GPIOC_CLK_ENABLE();
-			HAL_GPIO_WritePin(GPIOC, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOC, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 			break;
 		case PORTD:
 			__HAL_RCC_GPIOD_CLK_ENABLE();
-			HAL_GPIO_WritePin(GPIOD, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOD, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 			break;
 		case PORTE:
 			__HAL_RCC_GPIOE_CLK_ENABLE();
-			HAL_GPIO_WritePin(GPIOE, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOE, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 			break;
 		case PORTF:
 			__HAL_RCC_GPIOF_CLK_ENABLE();
-			HAL_GPIO_WritePin(GPIOF, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOF, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 			break;
 		default:
 			__HAL_RCC_GPIOE_CLK_ENABLE();
-			HAL_GPIO_WritePin(GPIOF, CH0_Pin|CH1_Pin|CH2_Pin|CH3_Pin
-									  |CH4_Pin|CH5_Pin|CH6_Pin|CH7_Pin|TRIGGER_Pin|DIR_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOF, GPIO_InitStruct.Pin, GPIO_PIN_RESET);
 			HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 			break;
 	}
 	uint8_t iter = 0;
-	uint16_t pins[] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin, CH4_Pin,CH5_Pin, CH6_Pin,
-			CH7_Pin, TRIGGER_Pin, DIR_Pin};
-	for (iter = 0; iter < 10;iter++){
+	//uint16_t pins[] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin, CH4_Pin,CH5_Pin, CH6_Pin,
+		//	CH7_Pin, TRIGGER_Pin, DIR_Pin};
+	for (iter = 0; iter < MAX_PIN_CNT;iter++){
 		HAL_GPIO_WritePin(GPIOE, pins[iter], GPIO_PIN_SET);
 	}
-	for (iter = 0; iter < 10;iter++){
+	for (iter = 0; iter < MAX_PIN_CNT;iter++){
 		HAL_GPIO_WritePin(GPIOE, pins[iter], GPIO_PIN_RESET);
 	}
 
@@ -269,7 +273,10 @@ void st_DAC_Init(void){
 	}
 	/* USER CODE BEGIN DAC1_Init 2 */
 
-	HAL_DACEx_SelfCalibrate(&hdac, &sConfig, DAC_CHANNEL_1);
+	if( HAL_DACEx_SelfCalibrate(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+	{
+		stError_Handler();
+	}
 }
 
 void st_TIM_Init(void){
@@ -277,8 +284,8 @@ void st_TIM_Init(void){
 	TIM_MasterConfigTypeDef sMasterConfig = {0};
 
 	/* USER CODE BEGIN TIM2_Init 1 */
-	uint32_t clkfreq1 = HAL_RCC_GetPCLK1Freq();
-	uint32_t clkfreq2 = HAL_RCC_GetPCLK2Freq();
+	// uint32_t clkfreq1 = HAL_RCC_GetPCLK1Freq(); // This should be used in order to adjust the PSK
+	// uint32_t clkfreq2 = HAL_RCC_GetPCLK2Freq();
 
 	/* USER CODE END TIM_Init 1 */
 	switch (TIM) {
@@ -358,12 +365,7 @@ void st_DACDMAConfig(){
 	 * ToDo: align frequency with the GPIO_DAC_SIZE values here.
 	 *
 	 */
-	/* Enable DAC selected channel and associated DMA */
-	if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, &stDACVals[0], GPIO_DAC_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
-	{
-		/* Start DMA Error */
-		stError_Handler();
-	}
+
 }
 
 
@@ -371,7 +373,7 @@ void st_DACDMAConfig(){
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
-void stError_Handler(void)
+void stError_Handler()
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */

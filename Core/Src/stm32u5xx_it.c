@@ -88,13 +88,15 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 	{
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_0|GPIO_PIN_2|GPIO_PIN_3|GPIO_PIN_4
+										  |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10, GPIO_PIN_RESET);
   /* USER CODE END HardFault_IRQn 0 */
-  while (1)
-  {
-    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
-    /* USER CODE END W1_HardFault_IRQn 0 */
-  }
+//  while (1)
+//  {
+//    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+//    /* USER CODE END W1_HardFault_IRQn 0 */
+//  }
+	return;
 }
 
 /**

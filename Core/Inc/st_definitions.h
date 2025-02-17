@@ -29,17 +29,21 @@ typedef enum {
 	st_ch1, st_ch2, st_ch3, st_ch4, st_ch5, st_ch6, st_ch7, st_ch8, st_ch9, st_ch10, st_ch11, st_ch12
 }st_gpdma_ch;
 
-#define MAX_SIGNAL_LENGTH 	128
-#define MAX_LABEL 	64
-#define CHAN_LENGTH 8
-#define MAX_PERIOD 	300
-#define MIN_PERIOD 	1
+// SEPARATOR BETWEEN CHANNELS
+#define SEP_SIZE	0
 
-#define NV	MAX_SIGNAL_LENGTH * (CHAN_LENGTH + 1)
 
-#define MAX_PORT 	5
+#define MAX_SIGNAL_LENGTH 	256
+#define MAX_LABEL 			64
+#define N_CHAN 				8
+#define MAX_PERIOD 			300
+#define MIN_PERIOD 			1
+
+#define NV	N_CHAN * (MAX_SIGNAL_LENGTH + SEP_SIZE)
+
+#define MAX_PORT 	10
 #define MAX_PIN 	GPIO_PIN_10
-
+#define MAX_PIN_CNT	10
 
 
 
@@ -55,7 +59,7 @@ typedef enum {
 
 #define ST_TIM	T2
 #define ST_PSK	160-1
-#define ST_PERIOD 	1
+#define ST_PERIOD 	10
 
 
 

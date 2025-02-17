@@ -106,14 +106,14 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
-void st_Iinitilize();
+void st_HALIinitilize();
 void st_DMA_Start();
 void st_DMA_Stop();
-void st_GPIO_Init(void);
-void st_GPDMA_Init(void);
-void st_ICACHE_Init(void);
-void st_DAC_Init(void);
-void st_TIM_Init(void);
+void st_GPIO_Init();
+void st_GPDMA_Init();
+void st_ICACHE_Init();
+void st_DAC_Init();
+void st_TIM_Init();
 void st_DACDMAConfig();
 
 

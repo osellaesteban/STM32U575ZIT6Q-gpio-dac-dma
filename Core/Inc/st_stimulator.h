@@ -28,6 +28,8 @@
 /** public variables**/
 
 /** Public functions **/
+
+void stInitilize();
 /**
  * Determines the global stimulator status.
  */
