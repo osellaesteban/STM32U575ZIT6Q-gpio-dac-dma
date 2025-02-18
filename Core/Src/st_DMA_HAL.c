@@ -30,8 +30,11 @@ TIM_HandleTypeDef htim;
 extern uint32_t stDACVals[];
 extern uint32_t stGPIOVals[];
 
-extern uint32_t dvals[];
+extern uint32_t DACVals[];
+extern uint32_t GPIOVals[];
+
 extern uint32_t pins[];
+
 
 extern DMA_QListTypeDef stGPIOQueue;
 extern DMA_QListTypeDef stDACQueue;
@@ -50,23 +53,27 @@ void st_HALIinitilize(){
 	st_DAC_Init();
 	st_TIM_Init();
 
-	MX_GPIOQueue_Config();
+	if (MX_GPIOQueue_Config() != HAL_OK)
+		stError_Handler();
 	HAL_DMAEx_List_LinkQ(&hGPDMA1_GPIO, &stGPIOQueue);
-
-	MX_DACQueue_Config();
-	HAL_DMAEx_List_LinkQ(&hGPDMA1_DAC, &stDACQueue);
-
-	__HAL_LINKDMA(&hdac, DMA_Handle1, hGPDMA1_DAC);
 	HAL_DMAEx_List_Start(&hGPDMA1_GPIO);
+
+
+	if (MX_DACQueue_Config() != HAL_OK)
+		stError_Handler();
+	HAL_DMAEx_List_LinkQ(&hGPDMA1_DAC, &stDACQueue);
+	__HAL_LINKDMA(&hdac, DMA_Handle1, hGPDMA1_DAC);
 
 }
 
 void st_DMA_Start(){
 
-	//HAL_TIM_Base_Start(&htim);
+	HAL_TIM_Base_Start(&htim);
 	/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
 	HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
 	// GPIOS and DAC output
+
+
 	switch (TIM) {
 		case T2:
 			TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;
@@ -82,15 +89,11 @@ void st_DMA_Start(){
 	/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
 	HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
 
-
 	st_DACDMAConfig();
-	/* Enable DAC selected channel and associated DMA */// &[0] and
- 	if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, &stDACVals[0], GPIO_DAC_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
-	{
-		/* Start DMA Error */
-		stError_Handler();
-	}
 	HAL_TIM_Base_Start_IT(&htim);//(&htim1, TIM_CHANNEL_1);
+
+	/* Enable DAC selected channel and associated DMA */// &stDACVals[0] and GPIO_DAC_SIZE
+
 }
 
 void st_DMA_Stop(){
@@ -214,7 +217,7 @@ void st_GPDMA_Init(void){
 	{
 		stError_Handler();
 	}
-	// hGPDMA1_DAC.Instance = DAC_GPDMA;
+
 	hGPDMA1_DAC.InitLinkedList.Priority = DMA_HIGH_PRIORITY;
 	hGPDMA1_DAC.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
 	hGPDMA1_DAC.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT0;
@@ -361,6 +364,11 @@ void st_DACDMAConfig(){
 	{
 		stError_Handler();
 	}
+	if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, &DACVals[0], NVALS, DAC_ALIGN_12B_R) != HAL_OK)
+		{
+			/* Start DMA Error */
+			stError_Handler();
+		}
 	/**
 	 * ToDo: align frequency with the GPIO_DAC_SIZE values here.
 	 *

@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NVALS 16
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,16 +57,6 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
-uint32_t DACVals[NVALS] = {000,4000,0000,4000,
-						   000,000,4000,4000,
-						   000,000,00,00,
-						   4000,4000,4000,4000};
-
-uint32_t GPIOEVals[NVALS] = {
-		PE0_Pin, 	       PE6_Pin, 		  PE2_Pin, 			 PE3_Pin,
-		PE4_Pin,		   PE5_Pin, 	      PE0_Pin | PE6_Pin, PE0_Pin | PE2_Pin,
-		PE0_Pin | PE3_Pin, PE0_Pin | PE4_Pin, PE0_Pin | PE5_Pin, PE6_Pin | PE2_Pin,
-		PE6_Pin | PE3_Pin, PE3_Pin | PE6_Pin, PE6_Pin | PE4_Pin, PE6_Pin | PE5_Pin};
 
 extern DMA_QListTypeDef GPIOQueue;
 extern DMA_QListTypeDef DACQueue;
@@ -76,11 +66,11 @@ extern DMA_QListTypeDef DACQueue;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void SystemPower_Config(void);
-static void MX_GPIO_Init(void);
+/*static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_DAC1_Init(void);
-static void MX_TIM2_Init(void);
+static void MX_TIM2_Init(void);*/
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -144,7 +134,8 @@ int main(void)
 
  // HAL_TIM_Base_Start(&htim1);
 
-
+  stInitilize();
+  stStartStimulation();
 
 //  stConfigureDefault(st_ramp);
 //  st_active_t state = st_enabled;
@@ -202,8 +193,7 @@ int main(void)
 //
 //  /* Infinite loop */
 //  /* USER CODE BEGIN WHILE */
-  stInitilize();
-  stStartStimulation();
+
   while (1)
   {
 
@@ -304,30 +294,30 @@ static void SystemPower_Config(void)
   * @param None
   * @retval None
   */
-static void MX_DAC1_Init(void)
+/*static void MX_DAC1_Init(void)
 {
 
-  /* USER CODE BEGIN DAC1_Init 0 */
+   USER CODE BEGIN DAC1_Init 0
 
-  /* USER CODE END DAC1_Init 0 */
+   USER CODE END DAC1_Init 0
 
   DAC_ChannelConfTypeDef sConfig = {0};
   DAC_AutonomousModeConfTypeDef sAutonomousMode = {0};
 
-  /* USER CODE BEGIN DAC1_Init 1 */
+   USER CODE BEGIN DAC1_Init 1
 
-  /* USER CODE END DAC1_Init 1 */
+   USER CODE END DAC1_Init 1
 
-  /** DAC Initialization
-  */
+  * DAC Initialization
+
   hdac1.Instance = DAC1;
   if (HAL_DAC_Init(&hdac1) != HAL_OK)
   {
     Error_Handler();
   }
 
-  /** DAC channel OUT1 config
-  */
+  * DAC channel OUT1 config
+
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_DISABLE;
   sConfig.DAC_DMADoubleDataMode = DISABLE;
   sConfig.DAC_SignedFormat = DISABLE;
@@ -341,44 +331,45 @@ static void MX_DAC1_Init(void)
     Error_Handler();
   }
 
-  /** Configure Autonomous Mode
-  */
+  * Configure Autonomous Mode
+
   sAutonomousMode.AutonomousModeState = DAC_AUTONOMOUS_MODE_DISABLE;
   if (HAL_DACEx_SetConfigAutonomousMode(&hdac1, &sAutonomousMode) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN DAC1_Init 2 */
+   USER CODE BEGIN DAC1_Init 2
 
   HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1);
-  /* USER CODE END DAC1_Init 2 */
+   USER CODE END DAC1_Init 2
 
-}
+}*/
 
 /**
   * @brief GPDMA1 Initialization Function
   * @param None
   * @retval None
   */
+/*
 static void MX_GPDMA1_Init(void)
 {
 
-  /* USER CODE BEGIN GPDMA1_Init 0 */
+   USER CODE BEGIN GPDMA1_Init 0
 
-  /* USER CODE END GPDMA1_Init 0 */
+   USER CODE END GPDMA1_Init 0
 
-  /* Peripheral clock enable */
+   Peripheral clock enable
   __HAL_RCC_GPDMA1_CLK_ENABLE();
 
-  /* GPDMA1 interrupt Init */
+   GPDMA1 interrupt Init
     HAL_NVIC_SetPriority(GPDMA1_Channel10_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel10_IRQn);
     HAL_NVIC_SetPriority(GPDMA1_Channel11_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel11_IRQn);
 
-  /* USER CODE BEGIN GPDMA1_Init 1 */
+   USER CODE BEGIN GPDMA1_Init 1
 
-  /* USER CODE END GPDMA1_Init 1 */
+   USER CODE END GPDMA1_Init 1
   handle_GPDMA1_Channel11.Instance = GPDMA1_Channel11;
   handle_GPDMA1_Channel11.InitLinkedList.Priority = DMA_HIGH_PRIORITY;
   handle_GPDMA1_Channel11.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
@@ -407,60 +398,64 @@ static void MX_GPDMA1_Init(void)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN GPDMA1_Init 2 */
+   USER CODE BEGIN GPDMA1_Init 2
 
-  /* USER CODE END GPDMA1_Init 2 */
+   USER CODE END GPDMA1_Init 2
 
 }
+*/
 
 /**
   * @brief ICACHE Initialization Function
   * @param None
   * @retval None
   */
+/*
 static void MX_ICACHE_Init(void)
 {
 
-  /* USER CODE BEGIN ICACHE_Init 0 */
+   USER CODE BEGIN ICACHE_Init 0
 
-  /* USER CODE END ICACHE_Init 0 */
+   USER CODE END ICACHE_Init 0
 
-  /* USER CODE BEGIN ICACHE_Init 1 */
+   USER CODE BEGIN ICACHE_Init 1
 
-  /* USER CODE END ICACHE_Init 1 */
+   USER CODE END ICACHE_Init 1
 
-  /** Enable instruction cache (default 2-ways set associative cache)
-  */
+  * Enable instruction cache (default 2-ways set associative cache)
+
   if (HAL_ICACHE_Enable() != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN ICACHE_Init 2 */
+   USER CODE BEGIN ICACHE_Init 2
 
-  /* USER CODE END ICACHE_Init 2 */
+   USER CODE END ICACHE_Init 2
 
 }
+*/
 
 /**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
   */
+/*
 static void MX_TIM2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM2_Init 0 */
+   USER CODE BEGIN TIM2_Init 0
 
-  /* USER CODE END TIM2_Init 0 */
+   USER CODE END TIM2_Init 0
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM2_Init 1 */
+   USER CODE BEGIN TIM2_Init 1
   uint32_t clkfreq1 = HAL_RCC_GetPCLK1Freq();
   uint32_t clkfreq2 = HAL_RCC_GetPCLK2Freq();
 
-  /* USER CODE END TIM2_Init 1 */
+   USER CODE END TIM2_Init 1
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 20-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -482,36 +477,38 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM2_Init 2 */
+   USER CODE BEGIN TIM2_Init 2
 
-  /* USER CODE END TIM2_Init 2 */
+   USER CODE END TIM2_Init 2
 
 }
 
+*/
 /**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
+/*
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+ USER CODE BEGIN MX_GPIO_Init_1
+ USER CODE END MX_GPIO_Init_1
 
-  /* GPIO Ports Clock Enable */
+   GPIO Ports Clock Enable
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
+  Configure GPIO pin Output Level
   HAL_GPIO_WritePin(GPIOE, PE2_Pin|PE3_Pin|PE4_Pin|PE5_Pin
                           |PE6_Pin|PE0_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PE2_Pin PE3_Pin PE4_Pin PE5_Pin
-                           PE6_Pin PE0_Pin */
+  Configure GPIO pins : PE2_Pin PE3_Pin PE4_Pin PE5_Pin
+                           PE6_Pin PE0_Pin
   GPIO_InitStruct.Pin = PE2_Pin|PE3_Pin|PE4_Pin|PE5_Pin
                           |PE6_Pin|PE0_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -519,61 +516,62 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+ USER CODE BEGIN MX_GPIO_Init_2
+ USER CODE END MX_GPIO_Init_2
 }
+*/
 
 /* USER CODE BEGIN 4 */
-void DACDMAConfig(){
-	 /* Stop DMA transfer */
+/*void DACDMAConfig(){
+	  Stop DMA transfer
 	  if(HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1) != HAL_OK)
 	  {
 		Error_Handler();
 	  }
 
-	  /* Deinitialize the DAC peripheral */
+	   Deinitialize the DAC peripheral
 	  if(HAL_DAC_DeInit(&hdac1) != HAL_OK)
 	  {
 		Error_Handler();
 	  }
 	DAC_ChannelConfTypeDef sConfig = {0};
 
-	/* Set DAC instance */
+	 Set DAC instance
 	hdac1.Instance = DAC1;
 
-	/* Initialize DAC */
+	 Initialize DAC
 	if (HAL_DAC_Init(&hdac1) != HAL_OK)
 	{
-	/* Initialization Error */
+	 Initialization Error
 	Error_Handler();
 	}
 
-	/* Config Channel */
+	 Config Channel
 	sConfig.DAC_Trigger                 = DAC_TRIGGER_T2_TRGO;
 	sConfig.DAC_OutputBuffer            = DAC_OUTPUTBUFFER_ENABLE;
 	sConfig.DAC_SampleAndHold           = DAC_SAMPLEANDHOLD_DISABLE;
 	sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
 
-	/* DAC Channel configuration */
+	 DAC Channel configuration
 	if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
 	{
-	/* Channel configuration Error */
+	 Channel configuration Error
 	Error_Handler();
 	}
 
-	/* DAC calibration */
+	 DAC calibration
 	if (HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
 	{
 	Error_Handler();
 	}
 
-	/* Enable DAC selected channel and associated DMA */
+	 Enable DAC selected channel and associated DMA
 	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], NVALS, DAC_ALIGN_12B_R) != HAL_OK)
 	{
-	/* Start DMA Error */
+	 Start DMA Error
 	Error_Handler();
 	}
-}
+}*/
 /* USER CODE END 4 */
 
 /**

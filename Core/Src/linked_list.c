@@ -50,6 +50,9 @@ DMA_QListTypeDef stDACQueue;
 extern uint32_t stGPIOVals[];
 extern uint32_t stDACVals[];
 
+extern uint32_t GPIOVals[];
+extern uint32_t DACVals[];
+
 extern uint32_t pins[];
 extern uint32_t dvals[];
 /* USER CODE END PM */
@@ -83,7 +86,7 @@ HAL_StatusTypeDef MX_GPIOQueue_Config(void)
   pNodeConfig.TriggerConfig.TriggerSelection = GPDMA1_TRIGGER_TIM2_TRGO;
   pNodeConfig.DataHandlingConfig.DataExchange = DMA_EXCHANGE_NONE;
   pNodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
-  pNodeConfig.SrcAddress = (uint32_t) stGPIOVals;
+  pNodeConfig.SrcAddress = (uint32_t) GPIOVals; //stGPIOVals
   switch (DEFAULT_PORT) {
 	case PORTA:
 		pNodeConfig.DstAddress = (uint32_t)&(GPIOA->ODR);
@@ -108,7 +111,7 @@ HAL_StatusTypeDef MX_GPIOQueue_Config(void)
 		break;
 }
 
-  pNodeConfig.DataSize = NV * sizeof(uint32_t);
+  pNodeConfig.DataSize = NVALS * sizeof(uint32_t); // NV
 
   /* Build GPIOENode Node */
   ret |= HAL_DMAEx_List_BuildNode(&pNodeConfig, &stGPIONode);
@@ -148,9 +151,9 @@ HAL_StatusTypeDef MX_DACQueue_Config(void)
   pNodeConfig.TriggerConfig.TriggerPolarity = DMA_TRIG_POLARITY_MASKED;
   pNodeConfig.DataHandlingConfig.DataExchange = DMA_EXCHANGE_NONE;
   pNodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
-  pNodeConfig.SrcAddress = (uint32_t)stDACVals;
+  pNodeConfig.SrcAddress = (uint32_t)DACVals; //stDACVals
   pNodeConfig.DstAddress = (uint32_t)&(DAC1->DOR1);
-  pNodeConfig.DataSize = NV * sizeof(uint32_t);
+  pNodeConfig.DataSize = NVALS * sizeof(uint32_t); // NV
 
   /* Build DACNode Node */
   ret |= HAL_DMAEx_List_BuildNode(&pNodeConfig, &stDACNode);

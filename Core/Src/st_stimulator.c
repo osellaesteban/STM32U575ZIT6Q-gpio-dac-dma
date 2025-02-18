@@ -33,6 +33,16 @@ uint32_t stGPIOVals[GPIO_DAC_SIZE];
 uint32_t pins[8] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin,
 		CH4_Pin, CH5_Pin, CH6_Pin, CH7_Pin};
 
+uint32_t DACVals[NVALS] = {000,4000,0000,4000,
+						   000,000,4000,4000,
+						   000,000,00,00,
+						   4000,4000,4000,4000};
+
+uint32_t GPIOVals[NVALS] = {
+		CH0_Pin, 	       CH2_Pin, 		  CH3_Pin, 			 CH4_Pin,
+		CH0_Pin,		   CH2_Pin, 	      CH3_Pin | CH0_Pin, CH2_Pin | CH0_Pin,
+		CH2_Pin | CH3_Pin, CH2_Pin | CH4_Pin, CH0_Pin | CH0_Pin, CH0_Pin | CH0_Pin,
+		CH0_Pin | CH0_Pin, CH0_Pin | CH0_Pin, CH0_Pin | CH0_Pin, CH0_Pin | CH0_Pin};
 
 /**
  * private Function definitions
@@ -50,10 +60,11 @@ void stConfigure(){
 }
 
 void stInitilize(){
+	st_HALIinitilize();
 	stConfigureDefault(st_ramp);
 	stSetEnableAllChannels(st_enabled);
 	stUpdateVectors();
-	st_HALIinitilize();
+
 
 }
 

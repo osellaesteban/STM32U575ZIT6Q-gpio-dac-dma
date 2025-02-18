@@ -30,7 +30,7 @@ typedef enum {
 }st_gpdma_ch;
 
 // SEPARATOR BETWEEN CHANNELS
-#define SEP_SIZE	0
+#define SEP_SIZE	10
 
 
 #define MAX_SIGNAL_LENGTH 	256
@@ -39,11 +39,12 @@ typedef enum {
 #define MAX_PERIOD 			300
 #define MIN_PERIOD 			1
 
-#define NV	N_CHAN * (MAX_SIGNAL_LENGTH + SEP_SIZE)
+#define NV					N_CHAN * (MAX_SIGNAL_LENGTH + SEP_SIZE)
+#define NVALS 16
 
-#define MAX_PORT 	10
-#define MAX_PIN 	GPIO_PIN_10
-#define MAX_PIN_CNT	10
+#define MAX_PORT 			10
+#define MAX_PIN 			GPIO_PIN_10
+#define MAX_PIN_CNT			10
 
 
 
