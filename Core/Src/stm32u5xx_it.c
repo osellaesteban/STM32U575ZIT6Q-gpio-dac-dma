@@ -87,6 +87,9 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
+	TIM_HandleTypeDef htim;
+	htim.Instance = TIM2;
+	HAL_TIM_Base_Stop_IT(&htim);
   /* USER CODE BEGIN HardFault_IRQn 0 */
 
   /* USER CODE END HardFault_IRQn 0 */

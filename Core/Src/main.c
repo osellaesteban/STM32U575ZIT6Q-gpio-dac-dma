@@ -26,6 +26,8 @@
 
 #include <st_stimulus.h>
 #include "st_stimulator.h"
+#include "st_STM32_HAL.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -68,8 +70,8 @@ uint32_t GPIOEVals[NVALS] = {
 		PE0_Pin | PE3_Pin, PE0_Pin | PE4_Pin, PE0_Pin | PE5_Pin, PE6_Pin | PE2_Pin,
 		PE6_Pin | PE3_Pin, PE3_Pin | PE6_Pin, PE6_Pin | PE4_Pin, PE6_Pin | PE5_Pin};
 
-extern DMA_QListTypeDef GPIOQueue;
-extern DMA_QListTypeDef DACQueue;
+//extern DMA_QListTypeDef GPIOQueue;
+//extern DMA_QListTypeDef DACQueue;
 
 /* USER CODE END PV */
 
@@ -121,13 +123,15 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_GPDMA1_Init();
-  MX_ICACHE_Init();
-  MX_DAC1_Init();
-  MX_TIM2_Init();
+  st_GPIO_Init();
+  st_GPDMA_Init();
+  st_ICACHE_Init();
+  st_DAC1_Init();
+  st_TIM_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
+  st_GPDMA_ConfigLink();
+  /* migration to st_STM32_hal
   MX_GPIOQueue_Config();
   HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
   HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
@@ -135,7 +139,7 @@ int main(void)
   MX_DACQueue_Config();
   HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
   __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
-
+*/
   //HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10); // Notice that this channel is Linearly configured instead of Circular.
 
   // DAC specific DMA channel 10 Falta asignar el canal de DMA que voy a usar luego.
@@ -182,11 +186,18 @@ int main(void)
   BSP_LED_On(LED_BLUE);
   BSP_LED_On(LED_RED);
 
-  HAL_TIM_Base_Start(&htim2);
+  st_TIM_Start();
+
+  //HAL_TIM_Base_Start(&htim2);
+
+
 /*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
   HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
   // GPIOS and DAC output
-  TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
+
+  // TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
+
+
   //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t)GPIOEVals, (uint32_t)&(GPIOC->ODR), 16);
 
   //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t *)DACVals, (uint32_t)&(DAC1->DOR1), 16);
@@ -195,8 +206,8 @@ int main(void)
     HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
 
 
-  DACDMAConfig();
-  HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
+  // DACDMAConfig();
+   // HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
 
   /* USER CODE END BSP */
 
