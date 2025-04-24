@@ -59,16 +59,6 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
-uint32_t DACVals[NVALS] = {000,4000,0000,4000,
-						   000,000,4000,4000,
-						   000,000,00,00,
-						   4000,4000,4000,4000};
-
-uint32_t GPIOEVals[NVALS] = {
-		PE0_Pin, 	       PE6_Pin, 		  PE2_Pin, 			 PE3_Pin,
-		PE4_Pin,		   PE5_Pin, 	      PE0_Pin | PE6_Pin, PE0_Pin | PE2_Pin,
-		PE0_Pin | PE3_Pin, PE0_Pin | PE4_Pin, PE0_Pin | PE5_Pin, PE6_Pin | PE2_Pin,
-		PE6_Pin | PE3_Pin, PE3_Pin | PE6_Pin, PE6_Pin | PE4_Pin, PE6_Pin | PE5_Pin};
 
 //extern DMA_QListTypeDef GPIOQueue;
 //extern DMA_QListTypeDef DACQueue;
@@ -533,56 +523,56 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void DACDMAConfig(){
-	 /* Stop DMA transfer */
+/*void DACDMAConfig(){
+	  Stop DMA transfer
 	  if(HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1) != HAL_OK)
 	  {
 		Error_Handler();
 	  }
 
-	  /* Deinitialize the DAC peripheral */
+	   Deinitialize the DAC peripheral
 	  if(HAL_DAC_DeInit(&hdac1) != HAL_OK)
 	  {
 		Error_Handler();
 	  }
 	DAC_ChannelConfTypeDef sConfig = {0};
 
-	/* Set DAC instance */
+	 Set DAC instance
 	hdac1.Instance = DAC1;
 
-	/* Initialize DAC */
+	 Initialize DAC
 	if (HAL_DAC_Init(&hdac1) != HAL_OK)
 	{
-	/* Initialization Error */
+	 Initialization Error
 	Error_Handler();
 	}
 
-	/* Config Channel */
+	 Config Channel
 	sConfig.DAC_Trigger                 = DAC_TRIGGER_T2_TRGO;
 	sConfig.DAC_OutputBuffer            = DAC_OUTPUTBUFFER_ENABLE;
 	sConfig.DAC_SampleAndHold           = DAC_SAMPLEANDHOLD_DISABLE;
 	sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
 
-	/* DAC Channel configuration */
+	 DAC Channel configuration
 	if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
 	{
-	/* Channel configuration Error */
+	 Channel configuration Error
 	Error_Handler();
 	}
 
-	/* DAC calibration */
+	 DAC calibration
 	if (HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
 	{
 	Error_Handler();
 	}
 
-	/* Enable DAC selected channel and associated DMA */
+	 Enable DAC selected channel and associated DMA
 	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], NVALS, DAC_ALIGN_12B_R) != HAL_OK)
 	{
-	/* Start DMA Error */
+	 Start DMA Error
 	Error_Handler();
 	}
-}
+}*/
 /* USER CODE END 4 */
 
 /**

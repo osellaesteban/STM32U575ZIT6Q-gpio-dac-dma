@@ -24,8 +24,17 @@ DMA_HandleTypeDef h_GPDMA_GPIO;
 DMA_HandleTypeDef h_GPDMA_DAC;
 extern DMA_QListTypeDef GPIOQueue;
 extern DMA_QListTypeDef DACQueue;
-extern uint32_t DACVals[NVALS];
-extern uint32_tGPIOEVals[NVALS];
+uint32_t DACVals[NVALS] = {000,4000,0000,4000,
+						   000,000,4000,4000,
+						   000,000,00,00,
+						   4000,4000,4000,4000};
+
+uint32_t GPIOEVals[NVALS] = {
+		PE0_Pin, 	       PE6_Pin, 		  PE2_Pin, 			 PE3_Pin,
+		PE4_Pin,		   PE5_Pin, 	      PE0_Pin | PE6_Pin, PE0_Pin | PE2_Pin,
+		PE0_Pin | PE3_Pin, PE0_Pin | PE4_Pin, PE0_Pin | PE5_Pin, PE6_Pin | PE2_Pin,
+		PE6_Pin | PE3_Pin, PE3_Pin | PE6_Pin, PE6_Pin | PE4_Pin, PE6_Pin | PE5_Pin};
+
 
 
 
@@ -234,7 +243,7 @@ void st_DACDMAConfig(){
 	/* Enable DAC selected channel and associated DMA */
 	if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, &DACVals[0], NVALS, DAC_ALIGN_12B_R) != HAL_OK)
 	{
-	/* Start DMA Error */
+	 //Start DMA Error
 		st_Error_Handler();
 	}
 }
