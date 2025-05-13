@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "st_definitions.h"
 /* USER CODE END Includes */
 
 DMA_NodeTypeDef GPIOENode;
@@ -77,7 +77,7 @@ HAL_StatusTypeDef MX_GPIOQueue_Config(void)
   pNodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
   pNodeConfig.SrcAddress = GPIOEVals;
   pNodeConfig.DstAddress = (uint32_t)&(GPIOE->ODR);
-  pNodeConfig.DataSize = 16*4;
+  pNodeConfig.DataSize = NV*4;
 
   /* Build GPIOENode Node */
   ret |= HAL_DMAEx_List_BuildNode(&pNodeConfig, &GPIOENode);
@@ -119,7 +119,7 @@ HAL_StatusTypeDef MX_DACQueue_Config(void)
   pNodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
   pNodeConfig.SrcAddress = DACVals;
   pNodeConfig.DstAddress = (uint32_t)&(DAC1->DOR1);
-  pNodeConfig.DataSize = 16*4;
+  pNodeConfig.DataSize = NV*4;
 
   /* Build DACNode Node */
   ret |= HAL_DMAEx_List_BuildNode(&pNodeConfig, &DACNode);

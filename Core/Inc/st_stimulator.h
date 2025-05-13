@@ -130,4 +130,13 @@ uint8_t stSetChannelSignal(uint8_t ch, uint32_t sz, uint16_t* values, uint16_t* 
 
 uint8_t stConfigureDefault(st_signal_type type);
 
+/**
+ * Updates the output vectors
+ */
+uint8_t stUpdateOutput();
+
+void stDisableAllChannels();
+
+void stEnableAllChannels();
+
 #endif /* INC_ST_STIMULATOR_H_ */

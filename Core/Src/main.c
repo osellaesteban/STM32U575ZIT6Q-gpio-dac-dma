@@ -57,17 +57,17 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
-uint32_t DACVals[NVALS] = {000,4000,0000,4000,
+extern uint32_t DACVals[NV];/* = {000,4000,0000,4000,
 						   000,000,4000,4000,
 						   000,000,00,00,
 						   4000,4000,4000,4000};
-
-uint32_t GPIOEVals[NVALS] = {
+*/
+extern uint32_t GPIOEVals[NV];/* = {
 		PE0_Pin, 	       PE6_Pin, 		  PE2_Pin, 			 PE3_Pin,
 		PE4_Pin,		   PE5_Pin, 	      PE0_Pin | PE6_Pin, PE0_Pin | PE2_Pin,
 		PE0_Pin | PE3_Pin, PE0_Pin | PE4_Pin, PE0_Pin | PE5_Pin, PE6_Pin | PE2_Pin,
 		PE6_Pin | PE3_Pin, PE3_Pin | PE6_Pin, PE6_Pin | PE4_Pin, PE6_Pin | PE5_Pin};
-
+*/
 extern DMA_QListTypeDef GPIOQueue;
 extern DMA_QListTypeDef DACQueue;
 
@@ -136,21 +136,13 @@ int main(void)
   HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
   __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
 
-  //HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10); // Notice that this channel is Linearly configured instead of Circular.
-
-  // DAC specific DMA channel 10 Falta asignar el canal de DMA que voy a usar luego.
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], 16, DAC_ALIGN_12B_R);
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, 16, DAC_ALIGN_12B_R);
-
- // HAL_TIM_Base_Start(&htim1);
-
-
-
   stConfigureDefault(st_ramp);
   st_active_t state = st_enabled;
   stSetGlobalState(state);
   state = st_disabled;
   stGetGlobalState(&state);
+  stEnableAllChannels();
+  stUpdateOutput();
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -187,13 +179,6 @@ int main(void)
   HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
   // GPIOS and DAC output
   TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
-  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t)GPIOEVals, (uint32_t)&(GPIOC->ODR), 16);
-
-  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t *)DACVals, (uint32_t)&(DAC1->DOR1), 16);
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, NVALS, DAC_ALIGN_12B_R);
-/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
-    HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
-
 
   DACDMAConfig();
   HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
@@ -460,9 +445,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 20-1;
+  htim2.Init.Prescaler = ST_PSK;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1;
+  htim2.Init.Period = ST_PERIOD;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -511,13 +496,47 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : PE2_Pin PE3_Pin PE4_Pin PE5_Pin
                            PE6_Pin PE0_Pin */
   GPIO_InitStruct.Pin = PE2_Pin|PE3_Pin|PE4_Pin|PE5_Pin
-                          |PE6_Pin|PE0_Pin;
+                          |PE6_Pin|PE0_Pin |CH6_PIN | CH7_PIN| ENABLE_PIN | TRIGGER_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+  HAL_GPIO_WritePin(GPIOE, PE0_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, PE2_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE3_Pin, GPIO_PIN_RESET); //|||||
+  HAL_GPIO_WritePin(GPIOE, PE4_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE5_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE6_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH6_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH7_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, ENABLE_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, TRIGGER_PIN, GPIO_PIN_RESET);
+
+  HAL_GPIO_WritePin(GPIOE, PE0_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, PE2_Pin, GPIO_PIN_SET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE3_Pin, GPIO_PIN_SET); //|||||
+  HAL_GPIO_WritePin(GPIOE, PE4_Pin, GPIO_PIN_SET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE5_Pin, GPIO_PIN_SET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE6_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH6_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH7_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, ENABLE_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, TRIGGER_PIN, GPIO_PIN_SET);
+
+  HAL_GPIO_WritePin(GPIOE, PE0_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, PE2_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE3_Pin, GPIO_PIN_RESET); //|||||
+  HAL_GPIO_WritePin(GPIOE, PE4_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
+  HAL_GPIO_WritePin(GPIOE, PE5_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, PE6_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH6_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH7_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, ENABLE_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, TRIGGER_PIN, GPIO_PIN_RESET);
+
+
 /* USER CODE END MX_GPIO_Init_2 */
 }
 

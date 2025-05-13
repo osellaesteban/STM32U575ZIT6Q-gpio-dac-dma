@@ -14,7 +14,7 @@
 // determined by the DAC temporal resolution and the AHB usage
 #define MAX_SIGNAL_LENGTH 	128
 #define MAX_LABEL 	64
-#define CHAN_LENGTH 8
+#define N_CHAN 				8
 #define MAX_PERIOD 	300
 #define MIN_PERIOD 	1
 
@@ -33,11 +33,19 @@
 #define CH6_PIN GPIO_PIN_7
 #define CH7_PIN GPIO_PIN_8
 
+#define ENABLE_PIN	GPIO_PIN_9
+#define TRIGGER_PIN	GPIO_PIN_10
+
 typedef enum {
 	st_square,st_ramp
 }st_signal_type;
 
+#define SEP_SIZE	10
+#define NV			N_CHAN * (MAX_SIGNAL_LENGTH + SEP_SIZE)
 
+#define ST_TIM	T2
+#define ST_PSK	160-1
+#define ST_PERIOD 	10
 
 
 #endif /* INC_ST_DEFINITIONS_H_ */
