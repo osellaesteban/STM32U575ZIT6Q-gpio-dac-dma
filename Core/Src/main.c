@@ -61,7 +61,10 @@ extern uint32_t DACVals[NV];/* = {000,4000,0000,4000,
 						   000,000,4000,4000,
 						   000,000,00,00,
 						   4000,4000,4000,4000};
+
 */
+
+
 extern uint32_t GPIOEVals[NV];/* = {
 		PE0_Pin, 	       PE6_Pin, 		  PE2_Pin, 			 PE3_Pin,
 		PE4_Pin,		   PE5_Pin, 	      PE0_Pin | PE6_Pin, PE0_Pin | PE2_Pin,
@@ -81,6 +84,7 @@ static void MX_GPDMA1_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
+void DACDMAConfig();
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -141,8 +145,11 @@ int main(void)
   stSetGlobalState(state);
   state = st_disabled;
   stGetGlobalState(&state);
+
   stEnableAllChannels();
   stUpdateOutput();
+
+
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -440,8 +447,8 @@ static void MX_TIM2_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
-  uint32_t clkfreq1 = HAL_RCC_GetPCLK1Freq();
-  uint32_t clkfreq2 = HAL_RCC_GetPCLK2Freq();
+  // uint32_t clkfreq1 = HAL_RCC_GetPCLK1Freq();
+  // uint32_t clkfreq2 = HAL_RCC_GetPCLK2Freq();
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
@@ -496,43 +503,43 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : PE2_Pin PE3_Pin PE4_Pin PE5_Pin
                            PE6_Pin PE0_Pin */
   GPIO_InitStruct.Pin = PE2_Pin|PE3_Pin|PE4_Pin|PE5_Pin
-                          |PE6_Pin|PE0_Pin |CH6_PIN | CH7_PIN| ENABLE_PIN | TRIGGER_PIN;
+                          |PE6_Pin|PE0_Pin |CH6_Pin | CH7_Pin| ENABLE_PIN | TRIGGER_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
-  HAL_GPIO_WritePin(GPIOE, PE0_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, PE2_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE3_Pin, GPIO_PIN_RESET); //|||||
-  HAL_GPIO_WritePin(GPIOE, PE4_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE5_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE6_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, CH6_PIN, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, CH7_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH0_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH5_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH6_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH7_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOE, ENABLE_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOE, TRIGGER_PIN, GPIO_PIN_RESET);
 
-  HAL_GPIO_WritePin(GPIOE, PE0_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOE, PE2_Pin, GPIO_PIN_SET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE3_Pin, GPIO_PIN_SET); //|||||
-  HAL_GPIO_WritePin(GPIOE, PE4_Pin, GPIO_PIN_SET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE5_Pin, GPIO_PIN_SET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE6_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOE, CH6_PIN, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOE, CH7_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH0_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH3_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH4_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH5_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH6_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, CH7_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOE, ENABLE_PIN, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOE, TRIGGER_PIN, GPIO_PIN_SET);
 
-  HAL_GPIO_WritePin(GPIOE, PE0_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, PE2_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE3_Pin, GPIO_PIN_RESET); //|||||
-  HAL_GPIO_WritePin(GPIOE, PE4_Pin, GPIO_PIN_RESET); //|PE3_Pin|PE4_Pin|PE5_Pin|PE6_Pin|PE0_Pin
-  HAL_GPIO_WritePin(GPIOE, PE5_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, PE6_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, CH6_PIN, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOE, CH7_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH0_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH5_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH6_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CH7_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOE, ENABLE_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOE, TRIGGER_PIN, GPIO_PIN_RESET);
 
@@ -585,7 +592,7 @@ void DACDMAConfig(){
 	}
 
 	/* Enable DAC selected channel and associated DMA */
-	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], NVALS, DAC_ALIGN_12B_R) != HAL_OK)
+	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], NV, DAC_ALIGN_12B_R) != HAL_OK)
 	{
 	/* Start DMA Error */
 	Error_Handler();

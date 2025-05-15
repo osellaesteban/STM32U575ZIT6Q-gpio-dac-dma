@@ -126,7 +126,7 @@ uint8_t stSetChannelPin(uint8_t chan,uint32_t port);
 uint8_t stGetChannelPin(uint8_t chan,uint32_t * pin);
 
 
-uint8_t stSetChannelSignal(uint8_t ch, uint32_t sz, uint16_t* values, uint16_t* signs );
+uint8_t stSetChannelSignal(uint8_t ch, uint32_t sz, uint32_t* values, uint32_t* signs );
 
 uint8_t stConfigureDefault(st_signal_type type);
 

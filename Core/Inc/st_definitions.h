@@ -19,22 +19,23 @@
 #define MIN_PERIOD 	1
 
 #define MAX_PORT 	5
-#define MAX_PIN 	16
+#define MAX_PIN 	2048
 
 #define DEFAULT_PORT	GPIOE
 
 
-#define CH0_PIN GPIO_PIN_0
-#define CH1_PIN GPIO_PIN_2
-#define CH2_PIN GPIO_PIN_3
-#define CH3_PIN GPIO_PIN_4
-#define CH4_PIN GPIO_PIN_5
-#define CH5_PIN GPIO_PIN_6
-#define CH6_PIN GPIO_PIN_7
-#define CH7_PIN GPIO_PIN_8
+#define CH0_Pin GPIO_PIN_0
+#define CH1_Pin GPIO_PIN_2
+#define CH2_Pin GPIO_PIN_3
+#define CH3_Pin GPIO_PIN_4
+#define CH4_Pin GPIO_PIN_5
+#define CH5_Pin GPIO_PIN_6
+#define CH6_Pin GPIO_PIN_7
+#define CH7_Pin GPIO_PIN_8
 
 #define ENABLE_PIN	GPIO_PIN_9
 #define TRIGGER_PIN	GPIO_PIN_10
+#define SIGN_PIN GPIO_PIN_11
 
 typedef enum {
 	st_square,st_ramp
@@ -42,10 +43,9 @@ typedef enum {
 
 #define SEP_SIZE	10
 #define NV			N_CHAN * (MAX_SIGNAL_LENGTH + SEP_SIZE)
-
+#define NVe 		16
 #define ST_TIM	T2
-#define ST_PSK	160-1
-#define ST_PERIOD 	10
-
+#define ST_PSK	20-1
+#define ST_PERIOD 	1
 
 #endif /* INC_ST_DEFINITIONS_H_ */

@@ -24,8 +24,8 @@ typedef struct 	st_stimulator{
 /** Private variables */
 st_stimulator_t stimulator;
 
-uint8_t pins[N_CHAN+2] = {CH0_PIN, CH1_PIN, CH2_PIN, CH3_PIN,
-		CH4_PIN, CH5_PIN, CH6_PIN, CH7_PIN, ENABLE_PIN, TRIGGER_PIN};
+uint32_t pins[N_CHAN+3] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin,
+		CH4_Pin, CH5_Pin, CH6_Pin, CH7_Pin, ENABLE_PIN, TRIGGER_PIN, SIGN_PIN};
 
 uint32_t GPIOEVals[NV];
 uint32_t DACVals[NV];
@@ -112,16 +112,13 @@ uint8_t stGetChannelLabelLength(uint8_t chann, uint16_t *length){
 
 uint8_t stGetChannelLabel(uint8_t chann, char *label, uint16_t length){
 	uint8_t res = 0;
-		if (chann < N_CHAN){
+		if (chann < N_CHAN)
 			if (length < MAX_LABEL)
 				memcpy(*label, stimulator.channels[chann].stLabel, length);
-			else{
+			else
 				res -=2;
-			}
-		}
-		else{
+		else
 			res--;
-		}
 	return res;
 }
 
@@ -267,7 +264,7 @@ uint8_t stGetChannelPin(uint8_t chan,uint32_t * pin){
 
 	return res;
 }
-uint8_t stSetChannelSignal(uint8_t ch, uint32_t sz, uint16_t* values, uint16_t* signs ){
+uint8_t stSetChannelSignal(uint8_t ch, uint32_t sz, uint32_t* values, uint32_t* signs ){
 	uint8_t res = 0;
 	if (ch < N_CHAN){
 		if(sz <= MAX_SIGNAL_LENGTH){
@@ -315,12 +312,12 @@ uint8_t stConfigureDefault(st_signal_type type){
 		{
 			signal[sig_it] = 0xFFAA;
 		}
-		//memset(signal,0xFFAA,(uint32_t) MAX_SIGNAL_LENGTH* sizeof(signal[0])/4);
+		// memset(signal,0xFFAA,(uint32_t) MAX_SIGNAL_LENGTH* sizeof(signal[0])/4);
 		memset(&signal[(uint32_t) MAX_SIGNAL_LENGTH/2],0xFFAA,(uint32_t) N_CHAN* sizeof(signal[0])/4);
 		break;
 	case st_ramp:
 		for(uint32_t it = 0; it < MAX_SIGNAL_LENGTH; it++){
-			signal[it] = it*10;
+			signal[it] = it*40;
 			}
 		break;
 	default:
@@ -336,6 +333,7 @@ uint8_t stConfigureDefault(st_signal_type type){
 		res += stSetChannelPin(ch_it,pins[ch_it]);
 		res += stSetChannelState(ch_it, st_disabled);
 	}
+	stimulator.stSignPin = SIGN_PIN;
 	return res;
 }
 
@@ -346,8 +344,10 @@ uint8_t stUpdateOutput(){
 	for (ch_it = 0; ch_it < N_CHAN; ch_it++){
 		if (stimulator.channels[ch_it].stActiveState == st_enabled){
 			for (sig_it = 0; sig_it < stimulator.channels[ch_it].stimulus.lastVal;  sig_it ++){
-				DACVals[(uint32_t) pos + sig_it] = stimulator.channels[ch_it].stimulus.intensity[sig_it];
-				GPIOEVals[(uint32_t) pos + sig_it] = stimulator.channels[ch_it].stPin | stimulator.channels[ch_it].stimulus.sign[sig_it] | ENABLE_PIN | TRIGGER_PIN;
+				DACVals[(uint32_t) pos + sig_it] = (uint32_t) stimulator.channels[ch_it].stimulus.intensity[sig_it];
+				GPIOEVals[(uint32_t) pos + sig_it] = stimulator.channels[ch_it].stPin |
+						stimulator.channels[ch_it].stimulus.sign[sig_it]*stimulator.stSignPin |
+						ENABLE_PIN | TRIGGER_PIN;
 			}
 
 			pos+=stimulator.channels[ch_it].stimulus.lastVal;
