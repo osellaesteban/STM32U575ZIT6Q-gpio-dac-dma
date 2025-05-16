@@ -23,6 +23,7 @@
 
 #define DEFAULT_PORT	GPIOE
 
+#define SAMPLES_OFFSET	1//436
 
 #define CH0_Pin GPIO_PIN_0
 #define CH1_Pin GPIO_PIN_2

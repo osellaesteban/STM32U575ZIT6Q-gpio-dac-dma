@@ -132,15 +132,7 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
-  MX_GPIOQueue_Config();
-  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
-
-  MX_DACQueue_Config();
-  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
-  __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
-
-  stConfigureDefault(st_ramp);
+  stConfigureDefault(st_square); //st_ramp
   st_active_t state = st_enabled;
   stSetGlobalState(state);
   state = st_disabled;
@@ -148,6 +140,14 @@ int main(void)
 
   stEnableAllChannels();
   stUpdateOutput();
+  MX_DACQueue_Config();
+    HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
+
+  MX_GPIOQueue_Config();
+   HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
+   HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
+
+   __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
 
 
   /* USER CODE END 2 */
@@ -180,14 +180,14 @@ int main(void)
   BSP_LED_On(LED_GREEN);
   BSP_LED_On(LED_BLUE);
   BSP_LED_On(LED_RED);
-
+  DACDMAConfig();
   HAL_TIM_Base_Start(&htim2);
 /*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
   HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
   // GPIOS and DAC output
   TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
 
-  DACDMAConfig();
+//  DACDMAConfig();
   HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
 
   /* USER CODE END BSP */
@@ -316,6 +316,7 @@ static void MX_DAC1_Init(void)
     Error_Handler();
   }
 
+
   /** DAC channel OUT1 config
   */
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_DISABLE;
@@ -330,7 +331,7 @@ static void MX_DAC1_Init(void)
   {
     Error_Handler();
   }
-
+  // HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0x0);
   /** Configure Autonomous Mode
   */
   sAutonomousMode.AutonomousModeState = DAC_AUTONOMOUS_MODE_DISABLE;
@@ -341,6 +342,11 @@ static void MX_DAC1_Init(void)
   /* USER CODE BEGIN DAC1_Init 2 */
 
   HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1);
+  // sets DAC out to zero at start.
+  __HAL_DAC_ENABLE(&hdac1,DAC_CHANNEL_1);
+  HAL_DAC_Start(&hdac1,DAC_CHANNEL_1);
+  HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,0);
+
   /* USER CODE END DAC1_Init 2 */
 
 }
@@ -398,6 +404,7 @@ static void MX_GPDMA1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN GPDMA1_Init 2 */
+  HAL_DAC_MspInit(&hdac1);
 
   /* USER CODE END GPDMA1_Init 2 */
 
@@ -569,7 +576,7 @@ void DACDMAConfig(){
 	if (HAL_DAC_Init(&hdac1) != HAL_OK)
 	{
 	/* Initialization Error */
-	Error_Handler();
+		Error_Handler();
 	}
 
 	/* Config Channel */
@@ -582,20 +589,20 @@ void DACDMAConfig(){
 	if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
 	{
 	/* Channel configuration Error */
-	Error_Handler();
+		Error_Handler();
 	}
 
 	/* DAC calibration */
 	if (HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
 	{
-	Error_Handler();
+		Error_Handler();
 	}
 
 	/* Enable DAC selected channel and associated DMA */
 	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], NV, DAC_ALIGN_12B_R) != HAL_OK)
 	{
-	/* Start DMA Error */
-	Error_Handler();
+		/* Start DMA Error */
+		Error_Handler();
 	}
 }
 /* USER CODE END 4 */

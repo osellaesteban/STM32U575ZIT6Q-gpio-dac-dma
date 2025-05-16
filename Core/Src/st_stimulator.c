@@ -299,9 +299,8 @@ uint8_t stConfigureDefault(st_signal_type type){
 	memset(signal, 0, sizeof(signal));
 
 	for (sig_it = 0; sig_it < MAX_SIGNAL_LENGTH/2; sig_it++)
-	{
 		sign[sig_it] = 1;
- 	}
+
 	switch (type) {
 	case st_square:
 		for (sig_it = 0; sig_it < MAX_SIGNAL_LENGTH/4; sig_it++)
@@ -309,9 +308,8 @@ uint8_t stConfigureDefault(st_signal_type type){
 			signal[sig_it] = 0xFFAA;
 		}
 		for (sig_it = MAX_SIGNAL_LENGTH/2; sig_it < 3*MAX_SIGNAL_LENGTH/4; sig_it++)
-		{
 			signal[sig_it] = 0xFFAA;
-		}
+
 		// memset(signal,0xFFAA,(uint32_t) MAX_SIGNAL_LENGTH* sizeof(signal[0])/4);
 		memset(&signal[(uint32_t) MAX_SIGNAL_LENGTH/2],0xFFAA,(uint32_t) N_CHAN* sizeof(signal[0])/4);
 		break;
@@ -345,7 +343,7 @@ uint8_t stUpdateOutput(){
 		if (stimulator.channels[ch_it].stActiveState == st_enabled){
 			for (sig_it = 0; sig_it < stimulator.channels[ch_it].stimulus.lastVal;  sig_it ++){
 				DACVals[(uint32_t) pos + sig_it] = (uint32_t) stimulator.channels[ch_it].stimulus.intensity[sig_it];
-				GPIOEVals[(uint32_t) pos + sig_it] = stimulator.channels[ch_it].stPin |
+				GPIOEVals[(uint32_t) pos + sig_it+ SAMPLES_OFFSET] = stimulator.channels[ch_it].stPin |
 						stimulator.channels[ch_it].stimulus.sign[sig_it]*stimulator.stSignPin |
 						ENABLE_PIN | TRIGGER_PIN;
 			}
