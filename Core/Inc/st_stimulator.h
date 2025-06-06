@@ -139,4 +139,20 @@ void stDisableAllChannels();
 
 void stEnableAllChannels();
 
+
+/**
+ * Starts the stimulation
+ */
+void stStartStimulation();
+
+/**
+ * Stops stimulation
+ */
+void stStopStimulation();
+
+/**
+ * Initializes the hw
+ */
+void stInitilizeHW();
+
 #endif /* INC_ST_STIMULATOR_H_ */

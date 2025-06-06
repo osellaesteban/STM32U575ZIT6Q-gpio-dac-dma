@@ -7,6 +7,8 @@
 #include <st_stimulator.h>
 #include <string.h>
 
+#include "st_HAL_U575.h"
+
 /** private structure definitions **/
 
 
@@ -30,6 +32,9 @@ uint32_t pins[N_CHAN+3] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin,
 uint32_t GPIOEVals[NV];
 uint32_t DACVals[NV];
 
+
+extern DMA_HandleTypeDef handle_GPDMA1_Channel11;
+extern DMA_HandleTypeDef handle_GPDMA1_Channel10;
 /** Functions implementations */
 
 /**
@@ -359,3 +364,22 @@ uint8_t stUpdateOutput(){
 	}
 	return res;
 }
+
+void stStartStimulation(){
+	stimulator.stGlobalState = st_enabled;
+	st_HAL_575_StartTimer();
+
+}
+
+
+void stStopStimulation(){
+	stimulator.stGlobalState = st_disabled;
+
+}
+
+void stInitilizeHW(){
+	st_HAL_575_InitilizeHW();
+}
+
+
+

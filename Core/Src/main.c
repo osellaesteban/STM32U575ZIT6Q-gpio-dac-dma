@@ -125,11 +125,19 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
+  //MX_GPIO_Init();
+
   MX_GPDMA1_Init();
-  MX_ICACHE_Init();
   MX_DAC1_Init();
-  MX_TIM2_Init();
+
+  stInitilizeHW();
+
+  //MX_ICACHE_Init();
+
+  //stInitilizeHW();
+
+
+  //MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
   stConfigureDefault(st_square); //st_ramp
@@ -141,13 +149,13 @@ int main(void)
   stEnableAllChannels();
   stUpdateOutput();
   MX_DACQueue_Config();
-    HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
+  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
 
   MX_GPIOQueue_Config();
-   HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-   HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
+  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
+  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
 
-   __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
+  __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
 
 
   /* USER CODE END 2 */
@@ -181,14 +189,11 @@ int main(void)
   BSP_LED_On(LED_BLUE);
   BSP_LED_On(LED_RED);
   DACDMAConfig();
-  HAL_TIM_Base_Start(&htim2);
-/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
-  // GPIOS and DAC output
-  TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
 
-//  DACDMAConfig();
-  HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
+  /*HAL_TIM_Base_Start(&htim2);
+  TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
+  HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);*/
+  stStartStimulation();
 
   /* USER CODE END BSP */
 
@@ -605,6 +610,20 @@ void DACDMAConfig(){
 		Error_Handler();
 	}
 }
+
+
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* _hdac){
+	st_active_t state = st_undefined;
+	if(_hdac == &hdac1)
+	{
+		stGetGlobalState(&state);
+		//check if turn off request is present
+		if(state == st_disabled)
+		{
+			st_HAL_575_StopTimer();
+		}
+	}
+}
 /* USER CODE END 4 */
 
 /**
@@ -638,10 +657,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   */
 void BSP_PB_Callback(Button_TypeDef Button)
 {
-  if (Button == BUTTON_USER)
-  {
-    BspButtonState = BUTTON_PRESSED;
-  }
+	static st_active_t globState = st_undefined;
+	stGetGlobalState(&globState);
+
+	if (globState == st_enabled)
+		stStopStimulation();
+	else
+	{
+		//handle_GPDMA1_Channel10->Instance->C
+		//ha.hdmarx->Instance->CMAR = &DACVals;
+
+		stStartStimulation();
+	}
 }
 
 /**
