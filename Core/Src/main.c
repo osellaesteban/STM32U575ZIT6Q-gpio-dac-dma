@@ -55,6 +55,8 @@ DMA_HandleTypeDef handle_GPDMA1_Channel10;
 
 TIM_HandleTypeDef htim2;
 
+UART_HandleTypeDef huart1;
+
 /* USER CODE BEGIN PV */
 
 extern uint32_t DACVals[NV];/* = {000,4000,0000,4000,
@@ -74,6 +76,8 @@ extern uint32_t GPIOEVals[NV];/* = {
 extern DMA_QListTypeDef GPIOQueue;
 extern DMA_QListTypeDef DACQueue;
 
+#define BUFF_SIZE	9710+16
+uint8_t serial_buffer[BUFF_SIZE];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,6 +88,9 @@ static void MX_GPDMA1_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
+
+static void MX_USART1_UART_Init(void);
+
 void DACDMAConfig();
 /* USER CODE BEGIN PFP */
 
@@ -127,16 +134,17 @@ int main(void)
   /* Initialize all configured peripherals */
   //MX_GPIO_Init();
 
-  MX_GPDMA1_Init();
-  MX_DAC1_Init();
-
-  stInitilizeHW();
-
+  MX_USART1_UART_Init();
   //MX_ICACHE_Init();
 
   //stInitilizeHW();
 
+  uint8_t msg[] = "A very light message\r\nA very light message\r\nA very light message\r\nA very light message\r\nA very light message\r\n";
+  HAL_UART_Transmit(&huart1, msg, sizeof(msg), 200);
+  MX_GPDMA1_Init();
+  MX_DAC1_Init();
 
+  stInitilizeHW();
   //MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
@@ -169,7 +177,7 @@ int main(void)
   BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
-  BspCOMInit.BaudRate   = 115200;
+  /*BspCOMInit.BaudRate   = 115200;
   BspCOMInit.WordLength = COM_WORDLENGTH_8B;
   BspCOMInit.StopBits   = COM_STOPBITS_1;
   BspCOMInit.Parity     = COM_PARITY_NONE;
@@ -177,7 +185,7 @@ int main(void)
   if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
   {
     Error_Handler();
-  }
+  }*/
 
   /* USER CODE BEGIN BSP */
 
@@ -428,7 +436,12 @@ static void MX_ICACHE_Init(void)
   /* USER CODE END ICACHE_Init 0 */
 
   /* USER CODE BEGIN ICACHE_Init 1 */
-
+	  /** Enable instruction cache in 1-way (direct mapped cache)
+	  */
+	  if (HAL_ICACHE_ConfigAssociativityMode(ICACHE_1WAY) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
   /* USER CODE END ICACHE_Init 1 */
 
   /** Enable instruction cache (default 2-ways set associative cache)
@@ -650,6 +663,50 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE END Callback 1 */
 }
 
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+
 /**
   * @brief BSP Push Button callback
   * @param Button Specifies the pressed button
@@ -660,12 +717,25 @@ void BSP_PB_Callback(Button_TypeDef Button)
 	static st_active_t globState = st_undefined;
 	stGetGlobalState(&globState);
 
+	uint16_t length = 0;
 	if (globState == st_enabled)
 		stStopStimulation();
 	else
 	{
 		//handle_GPDMA1_Channel10->Instance->C
 		//ha.hdmarx->Instance->CMAR = &DACVals;
+
+	//	uint8_t buff[] = "algo para mostrar\n";
+		//HAL_UART_Transmit(&huart1, buff, sizeof(buff), 200);
+		//printf(&buff);
+		stSerialize(&serial_buffer, &length);
+
+		//printf("algo\r\n");
+		//for (uint16_t k = 0; k , sizeof(serial_buffer); k++)
+			//printf("%d",serial_buffer[k]);
+		//HAL_UART_Transmit(&huart2,&serial_buffer,strlen(length),10);
+		//printf(&serial_buffer);
+		HAL_UART_Transmit(&huart1, serial_buffer, sizeof(serial_buffer), 200);
 
 		stStartStimulation();
 	}

@@ -18,7 +18,7 @@
 
 /** public structure definitions**/
 typedef enum {
-	st_disabled = 0, st_enabled, st_undefined
+	st_disabled = 0x01, st_enabled, st_undefined
 }st_active_t;
 
 typedef struct 	st_channel{

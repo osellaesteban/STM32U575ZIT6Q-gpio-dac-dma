@@ -1,5 +1,5 @@
 /*
- * definitions.h
+ * st_definitions.h
  *
  *  Created on: Jan 13, 2025
  *      Author: Osella Esteban
@@ -14,7 +14,7 @@
 // determined by the DAC temporal resolution and the AHB usage
 #define MAX_SIGNAL_LENGTH 	128
 #define MAX_LABEL 	64
-#define N_CHAN 				8
+#define N_CHAN 		8
 #define MAX_PERIOD 	300
 #define MIN_PERIOD 	1
 
@@ -48,5 +48,8 @@ typedef enum {
 #define ST_TIM	T2
 #define ST_PSK	20-1
 #define ST_PERIOD 	1
+
+
+
 
 #endif /* INC_ST_DEFINITIONS_H_ */

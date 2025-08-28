@@ -8,23 +8,15 @@
 #include <string.h>
 
 #include "st_HAL_U575.h"
+#include "st_TxRx_headers.h"
+
 
 /** private structure definitions **/
 
 
-typedef struct 	st_stimulator{
-	st_channel_t channels[N_CHAN];
-	uint32_t stPeriod;
-	uint8_t stStimSequence[N_CHAN];
-	uint32_t stPort;
-	uint32_t stSignPin;
-	uint32_t stTriggerPin;
-	st_active_t stGlobalState;
-}st_stimulator_t;
-
 
 /** Private variables */
-st_stimulator_t stimulator;
+st_stimulator_t stimulator; //8828 bytes
 
 uint32_t pins[N_CHAN+3] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin,
 		CH4_Pin, CH5_Pin, CH6_Pin, CH7_Pin, ENABLE_PIN, TRIGGER_PIN, SIGN_PIN};
@@ -293,7 +285,7 @@ uint8_t stConfigureDefault(st_signal_type type){
 	uint32_t ch_it,sig_it,res = 0;
 	uint32_t signal[MAX_SIGNAL_LENGTH];
 	uint32_t sign[MAX_SIGNAL_LENGTH];
-	char label[MAX_LABEL];
+	char label[MAX_LABEL] = "                                                                ";
 
 	res += stSetPort(DEFAULT_PORT);
 	res += stSetPeriod(MAX_PERIOD-1);
@@ -380,6 +372,176 @@ void stStopStimulation(){
 void stInitilizeHW(){
 	st_HAL_575_InitilizeHW();
 }
+/*
+void stSerialize(const st_stimulator_t* stim, uint8_t* buffer, uint16_t* length)
+{
+    uint16_t offset = sizeof(msg_header_t);
+    uint16_t act_chann= 0;
+    for (uint8_t k = 0; k < N_CHAN; k++)
+    	if(stim->channels[k].stActiveState == st_enabled)
+    		act_chann++;
+
+    // Serialize global header
+    global_header_t gheader = {
+        .active_channels = act_chann,
+        .global_state = stim->stGlobalState,
+        .reserved = 0
+    };
+    memcpy(buffer + offset, &gheader, sizeof(gheader));
+    offset += sizeof(gheader);
+
+    // Serialize each channel
+    for(int i = 0; i < N_CHAN; i++) {
+        channel_header_t cheader = {
+            .active_state = stim->channels[i].stActiveState,
+            .pin = stim->channels[i].stPin,
+            .stimulus_length = stim->channels[i].stimulus.lastVal // Or actual length
+        };
+        memcpy(buffer + offset, &cheader, sizeof(cheader));
+        offset += sizeof(cheader);
+
+        // Serialize stimulus
+        memcpy(buffer + offset, stim->channels[i].stimulus.intensity,
+        		cheader.stimulus_length  * sizeof(uint32_t));
+        offset += cheader.stimulus_length  * sizeof(uint32_t);
+
+        memcpy(buffer + offset, stim->channels[i].stimulus.sign,
+        		cheader.stimulus_length  * sizeof(uint32_t));
+        offset += cheader.stimulus_length  * sizeof(uint32_t);
+
+        // Serialize label (null-terminated)
+        strncpy((char*)(buffer + offset), stim->channels[i].stLabel, MAX_LABEL);
+        offset += MAX_LABEL;
+    }
+    // Serialize global parameters
+    memcpy(buffer + offset, &stim->stPeriod, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    // Update message header
+    msg_header_t* header = (msg_header_t*)buffer;
+    header->start_byte = 0xAA;
+    header->msg_type = CMD_SET_CONFIG;
+    header->length = offset - sizeof(msg_header_t);
+    *length = offset;
+}*/
 
 
+void stSerialize(uint8_t* buffer, uint16_t* length)
+{
+    uint16_t offset = sizeof(msg_header_t);
+    uint16_t act_chann= 0;
+    for (uint8_t k = 0; k < N_CHAN; k++)
+    	if(stimulator.channels[k].stActiveState == st_enabled)
+    		act_chann++;
 
+    // Serialize global header
+    global_header_t gheader = {
+        .active_channels = act_chann,
+        .global_state = stimulator.stGlobalState,
+		.reserved = 0xCFCF,
+		.period = stimulator.stPeriod,
+		.stim_port = stimulator.stPort,
+		.stim_Trigger_pin = stimulator.stTriggerPin,
+		.sign_pin = stimulator.stSignPin
+    };
+    memcpy(buffer + offset, &gheader, sizeof(gheader));
+    offset += sizeof(gheader);
+
+    // stimulation sequence
+    memcpy(buffer + offset, stimulator.stStimSequence,
+            		act_chann  * sizeof(uint8_t));
+    offset += act_chann  * sizeof(uint8_t);
+
+    // Serialize each channel
+    for(int i = 0; i < N_CHAN; i++) {
+        channel_header_t cheader = {
+            .active_state = stimulator.channels[i].stActiveState,
+            .pin = stimulator.channels[i].stPin,
+            .stimulus_length = stimulator.channels[i].stimulus.lastVal // Or actual length
+        };
+        memcpy(buffer + offset, &cheader, sizeof(cheader));
+        offset += sizeof(cheader);
+
+        // Serialize stimulus
+        memcpy(buffer + offset, stimulator.channels[i].stimulus.intensity,
+        		cheader.stimulus_length  * sizeof(uint32_t));
+        offset += cheader.stimulus_length  * sizeof(uint32_t);
+
+        memcpy(buffer + offset, stimulator.channels[i].stimulus.sign,
+        		cheader.stimulus_length  * sizeof(uint32_t));
+        offset += cheader.stimulus_length  * sizeof(uint32_t);
+
+        // Serialize label (null-terminated)
+        strncpy((char*)(buffer + offset), stimulator.channels[i].stLabel, MAX_LABEL);
+        offset += MAX_LABEL;
+    }
+    // Serialize global parameters
+    memcpy(buffer + offset, &stimulator.stPeriod, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    // Update message header
+    msg_header_t* header = (msg_header_t*)buffer;
+    header->start_byte = 0xAA;
+    header->msg_type = CMD_SET_CONFIG;
+    header->length = offset - sizeof(msg_header_t);
+    *length = offset;
+}
+
+
+uint8_t stDeserialize(const uint8_t* buffer, st_stimulator_t* stim)
+{
+    // Verify CRC and frame bytes first
+
+	uint8_t res = 0;
+    const global_header_t* gheader = (global_header_t*)(buffer + sizeof(msg_header_t));
+    uint16_t offset = sizeof(msg_header_t) + sizeof(global_header_t);
+
+    stim->stGlobalState = gheader->global_state;
+
+    for(int i = 0; i < gheader->active_channels; i++) {
+        const channel_header_t* cheader = (channel_header_t*)(buffer + offset);
+        offset += sizeof(channel_header_t);
+
+        stim->channels[i].stActiveState = cheader->active_state;
+        stim->channels[i].stPin = cheader->pin;
+
+        // Deserialize stimulus
+        memcpy(stim->channels[i].stimulus.intensity, buffer + offset,
+              MAX_SIGNAL_LENGTH * sizeof(uint32_t));
+        offset += MAX_SIGNAL_LENGTH * sizeof(uint32_t);
+
+        memcpy(stim->channels[i].stimulus.sign, buffer + offset,
+              MAX_SIGNAL_LENGTH * sizeof(uint32_t));
+        offset += MAX_SIGNAL_LENGTH * sizeof(uint32_t);
+
+        // Deserialize label
+        strncpy(stim->channels[i].stLabel, (const char*)(buffer + offset), MAX_LABEL);
+        offset += MAX_LABEL;
+    }
+
+    // Deserialize global parameters
+    stim->stPeriod = *(uint32_t*)(buffer + offset);
+    offset += sizeof(uint32_t);
+
+    return res;
+}
+/**
+ * To compute a CRC of the supported data, go through the following steps:
+1. Enable the CRC peripheral clock via the RCC peripheral.
+2. Set the CRC data register to the initial CRC value by configuring the initial CRC value
+register (CRC_INIT). In the more recent STM32 Series, it is possible to chain a CRC
+calculation based on the previous CRC calculation as initial value. In this case, the
+CRC_IDR register (not affected by the reset bit in CRC_CR) can be used. In HAL, this
+is implemented by HAL_CRC_Calculate.
+3. Set the I/O reverse bit order through the REV_IN[1:0] and REV_OUT bits, respectively,
+in the CRC control register (CRC_CR).
+4. Set the polynomial size and coefficients through the POLYSIZE[1:0] bits in CRC control
+register (CRC_CR) and CRC polynomial register (CRC_POL), respectively.
+5. Reset the CRC peripheral through the Reset bit in the CRC control register (CRC_CR).
+6. Set the data to the CRC data register.
+7. Read the content of the CRC data register.
+8. Disable the CRC peripheral clock.
+In the firmware package, the CRC_usage example runs the CRC checksum code
+computing an array data (DataBuffer) of 256 supported data type. For a full description,
+refer to the file Readme.txt in the CRC_usage folder.
+ */

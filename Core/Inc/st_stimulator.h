@@ -25,6 +25,19 @@
 #include "st_definitions.h"
 
 
+
+
+typedef struct 	st_stimulator{
+	st_channel_t channels[N_CHAN];
+	uint32_t stPeriod;
+	uint8_t stStimSequence[N_CHAN];
+	uint32_t stPort;
+	uint32_t stSignPin;
+	uint32_t stTriggerPin;
+	st_active_t stGlobalState;
+}st_stimulator_t;
+
+
 /** public variables**/
 
 /** Public functions **/
@@ -154,5 +167,18 @@ void stStopStimulation();
  * Initializes the hw
  */
 void stInitilizeHW();
+
+/**
+ * Serializes the information in order to transmit it to an UART/USART buffer
+ */
+//void stSerialize(const st_stimulator_t* stim, uint8_t* buffer, uint16_t* length);
+
+void stSerialize(uint8_t* buffer, uint16_t* length);
+
+/**
+ * Deserializes a stream.
+ */
+uint8_t stDeserialize(const uint8_t* buffer, st_stimulator_t* stim);
+
 
 #endif /* INC_ST_STIMULATOR_H_ */
