@@ -78,6 +78,8 @@ extern DMA_QListTypeDef DACQueue;
 
 #define BUFF_SIZE	9710+16
 uint8_t serial_buffer[BUFF_SIZE];
+uint8_t Rxbuffer[BUFF_SIZE];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,6 +150,7 @@ int main(void)
   //MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
+  HAL_UART_Receive_IT(&huart1, Rxbuffer, 1);
   stConfigureDefault(st_square); //st_ramp
   st_active_t state = st_enabled;
   stSetGlobalState(state);
@@ -573,6 +576,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	HAL_StatusTypeDef hstat;
+	hstat = HAL_UART_Receive_IT(&huart1, Rxbuffer, 8788);
+	uint8_t res = Rxbuffer[0];
+	//HAL_UART_Transmit(&huart2, buffer, 5, 0xFFFF);
+}
 void DACDMAConfig(){
 	 /* Stop DMA transfer */
 	  if(HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1) != HAL_OK)
@@ -722,19 +732,8 @@ void BSP_PB_Callback(Button_TypeDef Button)
 		stStopStimulation();
 	else
 	{
-		//handle_GPDMA1_Channel10->Instance->C
-		//ha.hdmarx->Instance->CMAR = &DACVals;
 
-	//	uint8_t buff[] = "algo para mostrar\n";
-		//HAL_UART_Transmit(&huart1, buff, sizeof(buff), 200);
-		//printf(&buff);
 		stSerialize(&serial_buffer, &length);
-
-		//printf("algo\r\n");
-		//for (uint16_t k = 0; k , sizeof(serial_buffer); k++)
-			//printf("%d",serial_buffer[k]);
-		//HAL_UART_Transmit(&huart2,&serial_buffer,strlen(length),10);
-		//printf(&serial_buffer);
 		HAL_UART_Transmit(&huart1, serial_buffer, sizeof(serial_buffer), 200);
 
 		stStartStimulation();
