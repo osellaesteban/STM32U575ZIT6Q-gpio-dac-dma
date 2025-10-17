@@ -26,6 +26,7 @@
 
 #include <st_stimulus.h>
 #include "st_stimulator.h"
+#include "st_TxRx_headers.h""
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,6 +37,11 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define NVALS 16
+#define STX 0xAA
+#define ETX 0x55
+#define HEADER_SIZE 4
+#define BUFF_SIZE	9710+16
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,7 +63,14 @@ TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
 
+
 /* USER CODE BEGIN PV */
+
+volatile enum {
+    RX_IDLE,
+    RX_WAIT_HEADER,
+    RX_WAIT_PAYLOAD
+} rx_state = RX_IDLE;
 
 extern uint32_t DACVals[NV];/* = {000,4000,0000,4000,
 						   000,000,4000,4000,
@@ -76,9 +89,17 @@ extern uint32_t GPIOEVals[NV];/* = {
 extern DMA_QListTypeDef GPIOQueue;
 extern DMA_QListTypeDef DACQueue;
 
-#define BUFF_SIZE	9710+16
-uint8_t serial_buffer[BUFF_SIZE];
+uint8_t tx_buffer[BUFF_SIZE];
+
+uint8_t rx_header[HEADER_SIZE];
 uint8_t Rxbuffer[BUFF_SIZE];
+//ser_status_t serStatus;
+msg_header_t header;
+
+uint8_t END_SEQ[] = {0x0A,0X0A, ST_STOP, 0x0A,0X0A};
+#define END_SEQ_LEN (sizeof(END_SEQ))
+
+
 
 /* USER CODE END PV */
 
@@ -92,10 +113,10 @@ static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
 
 static void MX_USART1_UART_Init(void);
-
 void DACDMAConfig();
 /* USER CODE BEGIN PFP */
-
+void ResetReceiver(void) ;
+void UART_StartReception(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -141,7 +162,7 @@ int main(void)
 
   //stInitilizeHW();
 
-  uint8_t msg[] = "A very light message\r\nA very light message\r\nA very light message\r\nA very light message\r\nA very light message\r\n";
+  uint8_t msg[] = "STM32 Stimulus MUX -->>\r\n";
   HAL_UART_Transmit(&huart1, msg, sizeof(msg), 200);
   MX_GPDMA1_Init();
   MX_DAC1_Init();
@@ -150,7 +171,7 @@ int main(void)
   //MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //DACDMAConfig();
-  HAL_UART_Receive_IT(&huart1, Rxbuffer, 1);
+  // HAL_UART_Receive_IT(&huart1, Rxbuffer, 1);
   stConfigureDefault(st_square); //st_ramp
   st_active_t state = st_enabled;
   stSetGlobalState(state);
@@ -193,7 +214,7 @@ int main(void)
   /* USER CODE BEGIN BSP */
 
   /* -- Sample board code to send message over COM1 port ---- */
-  printf("Welcome to STM32 world !\n\r");
+  //printf("Welcome to STM32 world !\n\r");
 
   /* -- Sample board code to switch on leds ---- */
   BSP_LED_On(LED_GREEN);
@@ -201,6 +222,9 @@ int main(void)
   BSP_LED_On(LED_RED);
   DACDMAConfig();
 
+  // HAL_UART_Receive_IT(&huart1, Rxbuffer, sizeof(header));
+
+  UART_StartReception();
   /*HAL_TIM_Base_Start(&htim2);
   TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
   HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);*/
@@ -212,7 +236,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
     /* -- Sample board code for User push-button in interrupt mode ---- */
     if (BspButtonState == BUTTON_PRESSED)
     {
@@ -480,7 +503,6 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = ST_PSK;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = ST_PERIOD;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -577,12 +599,81 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	HAL_StatusTypeDef hstat;
-	hstat = HAL_UART_Receive_IT(&huart1, Rxbuffer, 8788);
-	uint8_t res = Rxbuffer[0];
-	//HAL_UART_Transmit(&huart2, buffer, 5, 0xFFFF);
+
+/*
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1)
+    {
+        uint32_t err = HAL_UART_GetError(huart);
+        // Log it or toggle a pin
+        BSP_LED_Toggle(LED_GREEN);
+        __NOP();
+    }
 }
+*/
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+
+	if(huart->Instance == USART1)
+	{
+		/*switch (serStatus){
+		case ser_read_head:
+			st_Rx_DecodeHeader(Rxbuffer,&header);
+			serStatus = ser_read_msg;
+			HAL_UART_Receive_IT(&huart1, Rxbuffer, header.length);
+			break;
+		case ser_read_msg:
+			st_Rx_DecodeConfig(Rxbuffer,header.length);//,&stimulator);
+			//st_Rx_DecodeMsg(Rxbuffer);
+			serStatus = ser_read_head;
+			HAL_UART_Receive_IT(&huart1, Rxbuffer, sizeof(header));
+			break;
+		}*/
+		switch(rx_state)
+		{
+		case RX_WAIT_HEADER:
+			header.start_byte = rx_header[0];
+			header.msg_type = rx_header[1];
+			header.length = (rx_header[3] << 8) | rx_header[2];
+			rx_state = RX_WAIT_PAYLOAD;
+			HAL_UART_Receive_IT(&huart1, &Rxbuffer,header.length);
+			break;
+		case RX_WAIT_PAYLOAD:
+			st_Rx_DecodeConfig(Rxbuffer,header.length);
+			rx_state = RX_WAIT_HEADER;
+			HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
+			break;
+		default:
+			HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
+			break;
+
+		}
+	   /*uint16_t next_head = (rx_buffer.head + 1) % BUFF_SIZE;
+
+		if (next_head != rx_buffer.tail) {
+			rx_buffer.buffer[rx_buffer.head] = rx_byte;
+			rx_buffer.head = next_head;
+		}
+		else {
+			rx_buffer.overflow_count++;
+		}
+		HAL_UART_Receive_IT(&huart1, &rx_byte,1);*/
+	}
+}
+
+void UART_StartReception(void)
+{
+    rx_state = RX_WAIT_HEADER;
+
+    HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
+	//HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+}
+void ProcessMessage(uint8_t *msg, uint16_t *len){
+	BSP_LED_Toggle(LED_GREEN);
+}
+
 void DACDMAConfig(){
 	 /* Stop DMA transfer */
 	  if(HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1) != HAL_OK)
@@ -712,6 +803,7 @@ static void MX_USART1_UART_Init(void)
   }
   /* USER CODE BEGIN USART1_Init 2 */
 
+  //huart1.Instance->CR3 |= USART_CR3_OVRDIS;
   /* USER CODE END USART1_Init 2 */
 
 }
@@ -733,8 +825,8 @@ void BSP_PB_Callback(Button_TypeDef Button)
 	else
 	{
 
-		stSerialize(&serial_buffer, &length);
-		HAL_UART_Transmit(&huart1, serial_buffer, sizeof(serial_buffer), 200);
+		stSerialize(&tx_buffer, &length);
+		HAL_UART_Transmit(&huart1, tx_buffer, sizeof(tx_buffer), 200);
 
 		stStartStimulation();
 	}

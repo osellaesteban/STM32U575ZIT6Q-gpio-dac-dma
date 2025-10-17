@@ -23,6 +23,7 @@
 /** own includes **/
 #include "st_channel.h"
 #include "st_definitions.h"
+#include "st_TxRx_headers.h"
 
 
 
@@ -180,5 +181,10 @@ void stSerialize(uint8_t* buffer, uint16_t* length);
  */
 uint8_t stDeserialize(const uint8_t* buffer, st_stimulator_t* stim);
 
+
+/**
+ *
+ */
+uint8_t st_Rx_DecodeConfig(uint8_t * buff, uint16_t len);
 
 #endif /* INC_ST_STIMULATOR_H_ */

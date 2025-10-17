@@ -8,7 +8,8 @@
 #include <string.h>
 
 #include "st_HAL_U575.h"
-#include "st_TxRx_headers.h"
+
+
 
 
 /** private structure definitions **/
@@ -438,11 +439,11 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
     global_header_t gheader = {
         .active_channels = act_chann,
         .global_state = stimulator.stGlobalState,
-		.reserved = 0xCFCF,
 		.period = stimulator.stPeriod,
 		.stim_port = stimulator.stPort,
 		.stim_Trigger_pin = stimulator.stTriggerPin,
-		.sign_pin = stimulator.stSignPin
+		.sign_pin = stimulator.stSignPin,
+		.reserved = 0xCFCF
     };
     memcpy(buffer + offset, &gheader, sizeof(gheader));
     offset += sizeof(gheader);
@@ -454,7 +455,7 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
 
     // Serialize each channel
     for(int i = 0; i < N_CHAN; i++) {
-        channel_header_t cheader = {
+        channel_header_t cheader = { // possibly should include the nr of the channel
             .active_state = stimulator.channels[i].stActiveState,
             .pin = stimulator.channels[i].stPin,
             .stimulus_length = stimulator.channels[i].stimulus.lastVal // Or actual length
@@ -525,6 +526,78 @@ uint8_t stDeserialize(const uint8_t* buffer, st_stimulator_t* stim)
 
     return res;
 }
+
+uint8_t st_Rx_DecodeConfig(uint8_t * buff,uint16_t len){
+	uint8_t res = 0;
+	uint8_t active_ch = 0;
+	uint16_t reserved =0;
+	if (buff[0] > N_CHAN)
+		res += 1<<0;
+
+	if(res == 0)
+	{
+		uint8_t ch_it = 0;
+		uint16_t b_it = 0;
+		uint16_t signal_it = 0;
+		active_ch = buff[0]; // terminar de corregir como leer esto.
+		stimulator.stGlobalState = buff[1];
+		stimulator.stPeriod = (buff[5]<<8*3)+(buff[4]<<8*2)+(buff[3]<<8*1)+buff[2]; // ojo que es uint32 y estamos metiendole uint8_t
+		stimulator.stPort = (buff[9]<<8*3)+(buff[8]<<8*2)+(buff[7]<<8*1)+buff[6];
+		stimulator.stTriggerPin = (buff[13]<<8*3)+(buff[12]<<8*2)+(buff[11]<<8*1)+buff[10];
+		stimulator.stSignPin = (buff[17]<<8*3)+(buff[16]<<8*2)+(buff[15]<<8*1)+buff[14];
+		reserved = (buff[19]<<8) | buff[18];
+
+		b_it = 20;
+		if (b_it + active_ch <= len)
+		{
+			for(ch_it = 0; ch_it < active_ch;ch_it++ )
+				stimulator.stStimSequence[ch_it] = buff[ch_it + b_it];
+		}
+		else
+			res +=(1<<6);
+		b_it +=active_ch;
+
+		for(ch_it = 0; ch_it < active_ch;ch_it++ )
+		{
+			stimulator.channels[ch_it].stActiveState = buff[b_it];
+			b_it++;
+			stimulator.channels[ch_it].stPin= buff[b_it] | (buff[b_it+1]<<8) | (buff[b_it+2]<<16) | (buff[b_it+3]<<24);
+			b_it+=4;
+			stimulator.channels[ch_it].stimulus.lastVal = buff[b_it] | (buff[b_it+1]<<8) ;
+			b_it+=2;
+			if(b_it + 2*stimulator.channels[ch_it].stimulus.lastVal < len){
+				for (signal_it = 0; signal_it < stimulator.channels[ch_it].stimulus.lastVal ; signal_it++)
+				{
+					stimulator.channels[ch_it].stimulus.intensity[signal_it] = buff[b_it] | (buff[b_it+1]<<8) | (buff[b_it+2]<<16) | (buff[b_it+3]<<24);
+					b_it +=4;
+				}
+				for (signal_it = 0; signal_it < stimulator.channels[ch_it].stimulus.lastVal ; signal_it++)
+				{
+					stimulator.channels[ch_it].stimulus.sign[signal_it] = buff[b_it] | (buff[b_it+1]<<8) | (buff[b_it+2]<<16) | (buff[b_it+3]<<24);
+					b_it +=4;
+				}
+
+			}
+			else
+				res+= ch_it*(1<<3);
+			//b_it += 2*stimulator.channels[ch_it].stimulus.lastVal;
+			if (b_it+MAX_LABEL<len){
+				for (signal_it = 0; signal_it < MAX_LABEL ; signal_it++){
+					stimulator.channels[ch_it].stLabel[signal_it] = buff[b_it+signal_it];
+				}
+			}
+			else
+				res += ch_it * (1<<5);
+			b_it += MAX_LABEL;
+		}
+	}
+	return res;
+
+
+}
+
+
+
 /**
  * To compute a CRC of the supported data, go through the following steps:
 1. Enable the CRC peripheral clock via the RCC peripheral.

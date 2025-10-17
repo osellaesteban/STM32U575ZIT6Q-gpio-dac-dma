@@ -9,10 +9,16 @@
 #define INC_ST_TXRX_HEADERS_H_
 
 #include "st_definitions.h"
-
+#include "st_stimulator.h"
+#define BUFF_SIZE	9710+16
 #define ST_START 0XAA
 #define ST_STOP	 0X55
 
+
+typedef enum {
+	ser_read_head = 0,
+	ser_read_msg
+	} ser_status_t;
 
 typedef enum {
     CMD_SET_CONFIG = 0x01,
@@ -26,11 +32,17 @@ typedef enum {
 } ProtocolCmd;
 
 
+typedef enum {
+    STATE_HEADER,
+    STATE_PAYLOAD
+} uart_state_t;
+
+
 #pragma pack(push, 1) // Ensure byte-aligned packing
 
 typedef struct {
     uint8_t start_byte;
-    uint8_t msg_type;
+    uint8_t msg_type; // command
     uint16_t length;
     // Payload follows
 } msg_header_t;
@@ -52,5 +64,10 @@ typedef struct {
 } channel_header_t;
 
 #pragma pack(pop)
+
+
+void st_Rx_DecodeHeader(uint8_t * buff,msg_header_t* head);
+void st_Rx_DecodeMsg(uint8_t * buff);
+
 
 #endif /* INC_ST_TXRX_HEADERS_H_ */

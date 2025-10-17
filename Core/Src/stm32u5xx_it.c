@@ -285,6 +285,7 @@ void USART1_IRQHandler(void)
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
 
+  //__HAL_UART_CLEAR_FLAG(&huart1, UART_FLAG_RXNE);
   /* USER CODE END USART1_IRQn 1 */
 }
 /* USER CODE END 1 */
