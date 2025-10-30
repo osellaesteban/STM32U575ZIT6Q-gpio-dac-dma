@@ -9,7 +9,7 @@
 #define INC_ST_TXRX_HEADERS_H_
 
 #include "st_definitions.h"
-#include "st_stimulator.h"
+//#include "st_stimulator.h"
 #define BUFF_SIZE	9710+16
 #define ST_START 0XAA
 #define ST_STOP	 0X55
@@ -42,7 +42,7 @@ typedef enum {
 
 typedef struct {
     uint8_t start_byte;
-    uint8_t msg_type; // command
+    ProtocolCmd msg_type; // command
     uint16_t length;
     // Payload follows
 } msg_header_t;

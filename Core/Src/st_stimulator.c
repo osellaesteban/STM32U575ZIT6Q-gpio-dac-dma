@@ -8,12 +8,11 @@
 #include <string.h>
 
 #include "st_HAL_U575.h"
-
-
-
+#include "stm32u5xx_hal_conf.h"
 
 /** private structure definitions **/
 
+#define BUFF_SIZE	9710+16
 
 
 /** Private variables */
@@ -24,10 +23,16 @@ uint32_t pins[N_CHAN+3] = {CH0_Pin, CH1_Pin, CH2_Pin, CH3_Pin,
 
 uint32_t GPIOEVals[NV];
 uint32_t DACVals[NV];
-
+uint8_t TxRx_tail[] ={0x00,0x00,ST_STOP,0x00,0x00};
 
 extern DMA_HandleTypeDef handle_GPDMA1_Channel11;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel10;
+extern UART_HandleTypeDef huart1;
+extern uint8_t tx_buffer[];
+
+
+
+
 /** Functions implementations */
 
 /**
@@ -367,73 +372,29 @@ void stStartStimulation(){
 
 void stStopStimulation(){
 	stimulator.stGlobalState = st_disabled;
+	st_HAL_575_StopTimer();
 
 }
 
 void stInitilizeHW(){
 	st_HAL_575_InitilizeHW();
 }
-/*
-void stSerialize(const st_stimulator_t* stim, uint8_t* buffer, uint16_t* length)
-{
-    uint16_t offset = sizeof(msg_header_t);
-    uint16_t act_chann= 0;
-    for (uint8_t k = 0; k < N_CHAN; k++)
-    	if(stim->channels[k].stActiveState == st_enabled)
-    		act_chann++;
 
-    // Serialize global header
-    global_header_t gheader = {
-        .active_channels = act_chann,
-        .global_state = stim->stGlobalState,
-        .reserved = 0
-    };
-    memcpy(buffer + offset, &gheader, sizeof(gheader));
-    offset += sizeof(gheader);
-
-    // Serialize each channel
-    for(int i = 0; i < N_CHAN; i++) {
-        channel_header_t cheader = {
-            .active_state = stim->channels[i].stActiveState,
-            .pin = stim->channels[i].stPin,
-            .stimulus_length = stim->channels[i].stimulus.lastVal // Or actual length
-        };
-        memcpy(buffer + offset, &cheader, sizeof(cheader));
-        offset += sizeof(cheader);
-
-        // Serialize stimulus
-        memcpy(buffer + offset, stim->channels[i].stimulus.intensity,
-        		cheader.stimulus_length  * sizeof(uint32_t));
-        offset += cheader.stimulus_length  * sizeof(uint32_t);
-
-        memcpy(buffer + offset, stim->channels[i].stimulus.sign,
-        		cheader.stimulus_length  * sizeof(uint32_t));
-        offset += cheader.stimulus_length  * sizeof(uint32_t);
-
-        // Serialize label (null-terminated)
-        strncpy((char*)(buffer + offset), stim->channels[i].stLabel, MAX_LABEL);
-        offset += MAX_LABEL;
-    }
-    // Serialize global parameters
-    memcpy(buffer + offset, &stim->stPeriod, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-
-    // Update message header
-    msg_header_t* header = (msg_header_t*)buffer;
-    header->start_byte = 0xAA;
-    header->msg_type = CMD_SET_CONFIG;
-    header->length = offset - sizeof(msg_header_t);
-    *length = offset;
-}*/
 
 
 void stSerialize(uint8_t* buffer, uint16_t* length)
 {
     uint16_t offset = sizeof(msg_header_t);
     uint16_t act_chann= 0;
-    for (uint8_t k = 0; k < N_CHAN; k++)
+    uint16_t chk_sum = 0;
+    uint16_t k = 0 ;
+    for (k = 0; k < N_CHAN; k++)
+    {
     	if(stimulator.channels[k].stActiveState == st_enabled)
+    	{
     		act_chann++;
+    	}
+    }
 
     // Serialize global header
     global_header_t gheader = {
@@ -445,6 +406,10 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
 		.sign_pin = stimulator.stSignPin,
 		.reserved = 0xCFCF
     };
+    chk_sum += (uint16_t) (0xFFFF) & (gheader.active_channels + gheader.global_state +
+    		gheader.period + gheader.reserved + gheader.sign_pin + gheader.stim_Trigger_pin +
+			gheader.stim_port);
+
     memcpy(buffer + offset, &gheader, sizeof(gheader));
     offset += sizeof(gheader);
 
@@ -452,6 +417,8 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
     memcpy(buffer + offset, stimulator.stStimSequence,
             		act_chann  * sizeof(uint8_t));
     offset += act_chann  * sizeof(uint8_t);
+    for (k = 0; k < act_chann; k++)
+    	chk_sum += (uint16_t) (0xFFFF) & (stimulator.stStimSequence[k]);
 
     // Serialize each channel
     for(int i = 0; i < N_CHAN; i++) {
@@ -460,6 +427,7 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
             .pin = stimulator.channels[i].stPin,
             .stimulus_length = stimulator.channels[i].stimulus.lastVal // Or actual length
         };
+        chk_sum += (uint16_t) (0xFFFF) & (cheader.active_state + cheader.pin + cheader.stimulus_length);
         memcpy(buffer + offset, &cheader, sizeof(cheader));
         offset += sizeof(cheader);
 
@@ -472,14 +440,27 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
         		cheader.stimulus_length  * sizeof(uint32_t));
         offset += cheader.stimulus_length  * sizeof(uint32_t);
 
+        for(k = 0; k < cheader.stimulus_length ; k++)
+			chk_sum += (uint16_t) (0xFFFF) & (stimulator.channels[i].stimulus.intensity[k] +
+					stimulator.channels[i].stimulus.sign[k] );
         // Serialize label (null-terminated)
         strncpy((char*)(buffer + offset), stimulator.channels[i].stLabel, MAX_LABEL);
         offset += MAX_LABEL;
+
+		for(k = 0; k < MAX_LABEL ; k++)
+			chk_sum += (uint16_t) (0xFFFF) & (stimulator.channels[i].stimulus.intensity[k] +
+					stimulator.channels[i].stLabel[k] );
     }
     // Serialize global parameters
-    memcpy(buffer + offset, &stimulator.stPeriod, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
+    memcpy(buffer + offset, &stimulator.stPeriod, sizeof(stimulator.stPeriod));
+    offset += sizeof(stimulator.stPeriod);
 
+    chk_sum += (uint16_t) (0xFFFF) & (stimulator.stPeriod);
+    memcpy(buffer + offset, &chk_sum,sizeof(chk_sum));
+    offset += sizeof(chk_sum);
+
+    memcpy(buffer + offset, &TxRx_tail,sizeof(TxRx_tail));
+    offset += sizeof(TxRx_tail);
     // Update message header
     msg_header_t* header = (msg_header_t*)buffer;
     header->start_byte = 0xAA;
@@ -488,56 +469,23 @@ void stSerialize(uint8_t* buffer, uint16_t* length)
     *length = offset;
 }
 
-
-uint8_t stDeserialize(const uint8_t* buffer, st_stimulator_t* stim)
-{
-    // Verify CRC and frame bytes first
-
-	uint8_t res = 0;
-    const global_header_t* gheader = (global_header_t*)(buffer + sizeof(msg_header_t));
-    uint16_t offset = sizeof(msg_header_t) + sizeof(global_header_t);
-
-    stim->stGlobalState = gheader->global_state;
-
-    for(int i = 0; i < gheader->active_channels; i++) {
-        const channel_header_t* cheader = (channel_header_t*)(buffer + offset);
-        offset += sizeof(channel_header_t);
-
-        stim->channels[i].stActiveState = cheader->active_state;
-        stim->channels[i].stPin = cheader->pin;
-
-        // Deserialize stimulus
-        memcpy(stim->channels[i].stimulus.intensity, buffer + offset,
-              MAX_SIGNAL_LENGTH * sizeof(uint32_t));
-        offset += MAX_SIGNAL_LENGTH * sizeof(uint32_t);
-
-        memcpy(stim->channels[i].stimulus.sign, buffer + offset,
-              MAX_SIGNAL_LENGTH * sizeof(uint32_t));
-        offset += MAX_SIGNAL_LENGTH * sizeof(uint32_t);
-
-        // Deserialize label
-        strncpy(stim->channels[i].stLabel, (const char*)(buffer + offset), MAX_LABEL);
-        offset += MAX_LABEL;
-    }
-
-    // Deserialize global parameters
-    stim->stPeriod = *(uint32_t*)(buffer + offset);
-    offset += sizeof(uint32_t);
-
-    return res;
+void stMessageOK(){
+	 //BSP_USART_Init();
 }
 
-uint8_t st_Rx_DecodeConfig(uint8_t * buff,uint16_t len){
+
+
+uint8_t st_Rx_DecodeConfig(uint8_t * buff, uint16_t len){
 	uint8_t res = 0;
 	uint8_t active_ch = 0;
 	uint16_t reserved =0;
 	if (buff[0] > N_CHAN)
 		res += 1<<0;
-
 	if(res == 0)
 	{
 		uint8_t ch_it = 0;
 		uint16_t b_it = 0;
+		uint16_t chksum = 0;
 		uint16_t signal_it = 0;
 		active_ch = buff[0]; // terminar de corregir como leer esto.
 		stimulator.stGlobalState = buff[1];
@@ -576,7 +524,6 @@ uint8_t st_Rx_DecodeConfig(uint8_t * buff,uint16_t len){
 					stimulator.channels[ch_it].stimulus.sign[signal_it] = buff[b_it] | (buff[b_it+1]<<8) | (buff[b_it+2]<<16) | (buff[b_it+3]<<24);
 					b_it +=4;
 				}
-
 			}
 			else
 				res+= ch_it*(1<<3);
@@ -590,9 +537,14 @@ uint8_t st_Rx_DecodeConfig(uint8_t * buff,uint16_t len){
 				res += ch_it * (1<<5);
 			b_it += MAX_LABEL;
 		}
+		for (signal_it = 0; signal_it < b_it; signal_it ++)
+			chksum+= buff[signal_it];
+		uint16_t chksum_buff =(buff[b_it]) | (buff[b_it+1]<<8);
+		if (chksum !=   chksum_buff )
+			res += 1<<6;
 	}
 	return res;
-
+	//return stDeserialize(buff,len);
 
 }
 

@@ -39,7 +39,7 @@
 #define NVALS 16
 #define STX 0xAA
 #define ETX 0x55
-#define HEADER_SIZE 4
+
 #define BUFF_SIZE	9710+16
 
 /* USER CODE END PD */
@@ -66,11 +66,6 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 
-volatile enum {
-    RX_IDLE,
-    RX_WAIT_HEADER,
-    RX_WAIT_PAYLOAD
-} rx_state = RX_IDLE;
 
 extern uint32_t DACVals[NV];/* = {000,4000,0000,4000,
 						   000,000,4000,4000,
@@ -89,12 +84,7 @@ extern uint32_t GPIOEVals[NV];/* = {
 extern DMA_QListTypeDef GPIOQueue;
 extern DMA_QListTypeDef DACQueue;
 
-uint8_t tx_buffer[BUFF_SIZE];
 
-uint8_t rx_header[HEADER_SIZE];
-uint8_t Rxbuffer[BUFF_SIZE];
-//ser_status_t serStatus;
-msg_header_t header;
 
 uint8_t END_SEQ[] = {0x0A,0X0A, ST_STOP, 0x0A,0X0A};
 #define END_SEQ_LEN (sizeof(END_SEQ))
@@ -600,76 +590,20 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 
-/*
+
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1)
     {
         uint32_t err = HAL_UART_GetError(huart);
-        // Log it or toggle a pin
         BSP_LED_Toggle(LED_GREEN);
-        __NOP();
     }
 }
-*/
 
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
-	if(huart->Instance == USART1)
-	{
-		/*switch (serStatus){
-		case ser_read_head:
-			st_Rx_DecodeHeader(Rxbuffer,&header);
-			serStatus = ser_read_msg;
-			HAL_UART_Receive_IT(&huart1, Rxbuffer, header.length);
-			break;
-		case ser_read_msg:
-			st_Rx_DecodeConfig(Rxbuffer,header.length);//,&stimulator);
-			//st_Rx_DecodeMsg(Rxbuffer);
-			serStatus = ser_read_head;
-			HAL_UART_Receive_IT(&huart1, Rxbuffer, sizeof(header));
-			break;
-		}*/
-		switch(rx_state)
-		{
-		case RX_WAIT_HEADER:
-			header.start_byte = rx_header[0];
-			header.msg_type = rx_header[1];
-			header.length = (rx_header[3] << 8) | rx_header[2];
-			rx_state = RX_WAIT_PAYLOAD;
-			HAL_UART_Receive_IT(&huart1, &Rxbuffer,header.length);
-			break;
-		case RX_WAIT_PAYLOAD:
-			st_Rx_DecodeConfig(Rxbuffer,header.length);
-			rx_state = RX_WAIT_HEADER;
-			HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
-			break;
-		default:
-			HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
-			break;
 
-		}
-	   /*uint16_t next_head = (rx_buffer.head + 1) % BUFF_SIZE;
 
-		if (next_head != rx_buffer.tail) {
-			rx_buffer.buffer[rx_buffer.head] = rx_byte;
-			rx_buffer.head = next_head;
-		}
-		else {
-			rx_buffer.overflow_count++;
-		}
-		HAL_UART_Receive_IT(&huart1, &rx_byte,1);*/
-	}
-}
-
-void UART_StartReception(void)
-{
-    rx_state = RX_WAIT_HEADER;
-
-    HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
-	//HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
-}
 void ProcessMessage(uint8_t *msg, uint16_t *len){
 	BSP_LED_Toggle(LED_GREEN);
 }
@@ -825,8 +759,8 @@ void BSP_PB_Callback(Button_TypeDef Button)
 	else
 	{
 
-		stSerialize(&tx_buffer, &length);
-		HAL_UART_Transmit(&huart1, tx_buffer, sizeof(tx_buffer), 200);
+		//stSerialize(&tx_buffer, &length);
+		//HAL_UART_Transmit(&huart1, tx_buffer, sizeof(tx_buffer), 200);
 
 		stStartStimulation();
 	}

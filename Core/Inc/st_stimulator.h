@@ -23,7 +23,8 @@
 /** own includes **/
 #include "st_channel.h"
 #include "st_definitions.h"
-#include "st_TxRx_headers.h"
+#include "st_HAL_U575.h"
+//#include "st_TxRx_headers.h"
 
 
 
@@ -175,11 +176,6 @@ void stInitilizeHW();
 //void stSerialize(const st_stimulator_t* stim, uint8_t* buffer, uint16_t* length);
 
 void stSerialize(uint8_t* buffer, uint16_t* length);
-
-/**
- * Deserializes a stream.
- */
-uint8_t stDeserialize(const uint8_t* buffer, st_stimulator_t* stim);
 
 
 /**

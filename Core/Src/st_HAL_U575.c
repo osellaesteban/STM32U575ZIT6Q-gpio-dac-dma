@@ -12,11 +12,30 @@
 #include "stm32u5xx_hal.h"
 #include "stm32u5xx_nucleo.h"
 #include "st_definitions.h"
+#define BUFF_SIZE	9710+16
+#define HEADER_SIZE	4
 
 DAC_HandleTypeDef st_hdac;
 TIM_HandleTypeDef st_htim;
+// msg_header_t header;
+msg_header_t TX_header;
+msg_header_t RX_header;
+
+uint8_t tx_buffer[BUFF_SIZE];
+
+uint8_t rx_header[HEADER_SIZE];
+uint8_t Rxbuffer[BUFF_SIZE];
+//ser_status_t serStatus;
+//msg_header_t header;
 
 
+volatile enum {
+    RX_IDLE,
+    RX_WAIT_HEADER,
+    RX_WAIT_PAYLOAD
+} rx_state = RX_IDLE;
+
+extern UART_HandleTypeDef huart1;
 
 void st_HAL_DAC_Init(void);
 void st_HAL_GPIO_Init(void);
@@ -232,3 +251,98 @@ void stHAL_Error_Handler(){
 
 }
 
+void st_HAL_USART_Send(uint8_t *data, uint16_t size) {
+    HAL_UART_Transmit_IT(&huart1, data, size);
+}
+
+void st_HAL_USART_IRQHandler(void) {
+    HAL_UART_IRQHandler(&huart1);
+}
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	if(huart->Instance == USART1)
+	{
+		switch(rx_state)
+		{
+		case RX_WAIT_HEADER:
+			RX_header.start_byte = rx_header[0];
+			RX_header.msg_type = rx_header[1];
+			RX_header.length = (rx_header[3] << 8) | rx_header[2];
+			rx_state = RX_WAIT_PAYLOAD;
+			HAL_UART_Receive_IT(&huart1, &Rxbuffer,RX_header.length);
+			break;
+		case RX_WAIT_PAYLOAD:
+			stDeserialize(Rxbuffer,RX_header.length,RX_header.msg_type);
+			switch(RX_header.msg_type){
+			case CMD_SET_CONFIG:
+
+				//st_Rx_DecodeConfig(Rxbuffer,RX_header.length);
+				break;
+			case CMD_GET_CONFIG:
+				stSerialize(&tx_buffer, &TX_header.length);
+				HAL_UART_Transmit(&huart1, tx_buffer, TX_header.length, 200);
+				break;
+			case CMD_START_STIM:
+				stStartStimulation();
+				break;
+			case CMD_STOP_STIM:
+				stStopStimulation();
+				break;
+			case RESP_DATA:
+				break;
+			}
+
+			rx_state = RX_WAIT_HEADER;
+			HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
+			break;
+		default:
+			HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
+			break;
+		}
+	}
+}
+
+
+
+
+void UART_StartReception(void)
+{
+    rx_state = RX_WAIT_HEADER;
+    HAL_UART_Receive_IT(&huart1, rx_header, HEADER_SIZE);
+}
+
+
+
+uint8_t stDeserialize(const uint8_t* buff, uint16_t len, ProtocolCmd cmd){
+	uint8_t res = 0;
+	switch (cmd){
+	case CMD_SET_CONFIG:
+		res = st_Rx_DecodeConfig(buff, len);
+		break;
+	case CMD_GET_CONFIG:
+		stSerialize(buff, len);
+		HAL_UART_Transmit(&huart1, tx_buffer, TX_header.length, 200);
+		break;
+	case CMD_START_STIM:
+		stStartStimulation();
+		break;
+	case CMD_STOP_STIM:
+		stStopStimulation();
+		break;
+	case CMD_SET_CHANNEL :
+		break;
+	case RESP_ACK:
+		break;
+	case RESP_NACK:
+		break;
+	case RESP_DATA :
+		break;
+	default:
+		break;
+	}
+	if (res == 0)
+		stMessageOK();
+	return (uint8_t) res;
+
+}
