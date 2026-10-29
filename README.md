@@ -4,6 +4,9 @@ Firmware para la NUCLEO-U575ZI-Q que multiplexa la salida de un estimulador
 monocanal Digitimer DS8R sobre 8 canales. Cada canal usa un puente completo
 PWD5F60, que además fija la polaridad del pulso en los electrodos.
 
+La aplicación de PC (sujeto, experimento, umbrales, protocolos, monitor y
+registro de sesiones) está en [pc_app/](pc_app/README.md).
+
 ## Arquitectura
 
 | Módulo | Función |
