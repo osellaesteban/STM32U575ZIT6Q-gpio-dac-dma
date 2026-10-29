@@ -67,6 +67,7 @@ static inline void HAL_RCC_GetClockConfig(RCC_ClkInitTypeDef *c, uint32_t *l){ c
 static inline uint32_t HAL_RCC_GetPCLK1Freq(void){ return 160000000U; }
 static inline void HAL_NVIC_SetPriority(int irq, uint32_t p, uint32_t s){ (void)irq; (void)p; (void)s; }
 static inline void HAL_NVIC_EnableIRQ(int irq){ (void)irq; }
+static inline void HAL_PWREx_EnableVddA(void){ }
 static inline uint32_t __get_PRIMASK(void){ return 0; }
 static inline void __disable_irq(void){ }
 static inline void __set_PRIMASK(uint32_t m){ (void)m; }

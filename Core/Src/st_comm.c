@@ -9,8 +9,8 @@
 #include "st_hw_config.h"
 
 #define RX_BUFFER_LENGTH	512		// power of 2
-
-extern UART_HandleTypeDef hcom_uart[];
+#define TX_BUFFER_LENGTH	8192	// power of 2
+#define TX_WAIT_TIMEOUT_MS	500
 
 /** Private variables */
 static volatile uint8_t rxBuffer[RX_BUFFER_LENGTH];
@@ -19,13 +19,52 @@ static volatile uint16_t rxTail;	// written by the main loop
 static uint16_t lineLength;
 static uint8_t lineOverflow;
 
+static volatile uint8_t txBuffer[TX_BUFFER_LENGTH];
+static volatile uint16_t txHead;	// written by the main loop
+static volatile uint16_t txTail;	// written by the ISR
+static uint32_t txDropped;
+
+
+/** Private functions */
+
+static void txPut(const char *data, uint16_t length){
+	uint16_t head = txHead;
+	while (length--){
+		txBuffer[head] = (uint8_t)*data++;
+		head = (head + 1U) & (TX_BUFFER_LENGTH - 1U);
+	}
+	txHead = head;
+	ATOMIC_SET_BIT(COM1_UART->CR1, USART_CR1_TXEIE_TXFNFIE);
+}
+
+
+static uint8_t txLine(const char *text, uint8_t wait){
+	uint16_t length = (uint16_t)strlen(text);
+	uint32_t start = HAL_GetTick();
+
+	while (stCommTxFree() < (length + 2U)){
+		if (!wait || ((HAL_GetTick() - start) > TX_WAIT_TIMEOUT_MS)){
+			txDropped++;
+			return 0;
+		}
+	}
+	txPut(text, length);
+	txPut("\r\n", 2);
+	return 1;
+}
+
+
+/** Public functions */
 
 void stCommInit(void){
 	rxHead = 0;
 	rxTail = 0;
 	lineLength = 0;
 	lineOverflow = 0;
-	COM1_UART->CR1 |= USART_CR1_RXNEIE_RXFNEIE;
+	txHead = 0;
+	txTail = 0;
+	txDropped = 0;
+	ATOMIC_SET_BIT(COM1_UART->CR1, USART_CR1_RXNEIE_RXFNEIE);
 	HAL_NVIC_SetPriority(USART1_IRQn, ST_COMM_IRQ_PRIO, 0);
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 }
@@ -58,8 +97,22 @@ int8_t stCommReadLine(char *line, uint16_t length){
 
 
 void stCommWriteLine(const char *text){
-	HAL_UART_Transmit(&hcom_uart[COM1], (const uint8_t *)text, (uint16_t)strlen(text), 100);
-	HAL_UART_Transmit(&hcom_uart[COM1], (const uint8_t *)"\r\n", 2, 100);
+	txLine(text, 1);
+}
+
+
+uint8_t stCommTryWriteLine(const char *text){
+	return txLine(text, 0);
+}
+
+
+uint16_t stCommTxFree(void){
+	return (uint16_t)((txTail - txHead - 1U) & (TX_BUFFER_LENGTH - 1U));
+}
+
+
+uint32_t stCommTxDropped(void){
+	return txDropped;
 }
 
 
@@ -79,6 +132,17 @@ void USART1_IRQHandler(void){
 		if (next != rxTail){		// drop the character if the buffer is full
 			rxBuffer[rxHead] = c;
 			rxHead = next;
+		}
+	}
+
+	if ((COM1_UART->CR1 & USART_CR1_TXEIE_TXFNFIE) != 0U){
+		while ((COM1_UART->ISR & USART_ISR_TXE_TXFNF) != 0U){
+			if (txTail == txHead){
+				COM1_UART->CR1 &= ~USART_CR1_TXEIE_TXFNFIE;
+				break;
+			}
+			COM1_UART->TDR = txBuffer[txTail];
+			txTail = (txTail + 1U) & (TX_BUFFER_LENGTH - 1U);
 		}
 	}
 }

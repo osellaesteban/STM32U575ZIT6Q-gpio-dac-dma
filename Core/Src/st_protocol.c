@@ -9,6 +9,8 @@
 #include "st_protocol.h"
 #include "st_stimulator.h"
 #include "st_engine.h"
+#include "st_monitor.h"
+#include "st_comm.h"
 
 #define MAX_TOKENS		(MAX_SLOTS + 2)
 
@@ -82,6 +84,7 @@ static const char *statusName(st_status_t status){
 	case ST_ERR_RANGE: return "ERR RANGE";
 	case ST_ERR_TIMING: return "ERR TIMING";
 	case ST_ERR_BUSY: return "ERR BUSY";
+	case ST_ERR_UNAVAILABLE: return "ERR UNAVAILABLE";
 	case ST_ERR_ARG:
 	default: return "ERR ARG";
 	}
@@ -251,9 +254,34 @@ void stProtocolHandleLine(char *line, char *response, uint16_t length){
 				(unsigned)DS8R_PW_MIN_US, (unsigned)DS8R_PW_MAX_US, (unsigned)DS8R_MIN_TRIG_INTERVAL_US);
 	}
 	else if (keywordIs(tokens[0], "STATUS")){
-		snprintf(response, length, "OK RUN=%u FRAMES=%lu WDOG=%lu",
+		snprintf(response, length, "OK RUN=%u FRAMES=%lu WDOG=%lu MON=%u TRIM=%lu MLOST=%lu TXDROP=%lu MSYNC=%u",
 				(unsigned)stEngineIsRunning(), (unsigned long)stEngineFrameCount(),
-				(unsigned long)watchdogMs);
+				(unsigned long)watchdogMs, (unsigned)stMonitorGetReports(),
+				(unsigned long)stMonitorGetTrim(), (unsigned long)stMonitorLost(),
+				(unsigned long)stCommTxDropped(), (unsigned)stMonitorSyncError());
+	}
+	/* Current monitor, allowed at any time */
+	else if (keywordIs(tokens[0], "MON")){
+		if ((count != 2) || !parseUint(tokens[1], 1, &value))
+			reply(response, length, ST_ERR_ARG);
+		else{
+			stMonitorSetReports((uint8_t)value);
+			reply(response, length, ST_OK);
+		}
+	}
+	else if (keywordIs(tokens[0], "MONTRIM")){
+		if ((count != 2) || !parseUint(tokens[1], 0xFFFF, &value))
+			reply(response, length, ST_ERR_ARG);
+		else
+			reply(response, length, stMonitorSetTrim(value));
+	}
+	else if (keywordIs(tokens[0], "WAVE")){
+		if (count == 1)
+			reply(response, length, stMonitorRequestWave(-1));
+		else if ((count == 2) && parseUint(tokens[1], 255, &value))
+			reply(response, length, stMonitorRequestWave((int16_t)value));
+		else
+			reply(response, length, ST_ERR_ARG);
 	}
 	else if (keywordIs(tokens[0], "GET")){
 		getCommand(response, length);

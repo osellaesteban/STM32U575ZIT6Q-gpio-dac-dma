@@ -6,7 +6,7 @@
  *  See README.md for the command list.
  *
  *  This module has no hardware dependencies (it uses st_stimulator and
- *  the st_engine API) so it can be tested on a PC.
+ *  the st_engine, st_monitor and st_comm APIs) so it can be tested on a PC.
  */
 
 #ifndef INC_ST_PROTOCOL_H_

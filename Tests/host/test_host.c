@@ -1,7 +1,7 @@
 /*
- * Host tests of the stimulator model, the command protocol and the engine
+ * Host tests of the stimulator model, the command protocol, the engine
  * (st_engine.c is compiled against fake registers, see fake/main.h, and
- * TIM2 is simulated with a 1 us step).
+ * TIM2 is simulated with a 1 us step) and the pulse statistics.
  *
  * Build and run with run_tests.sh.
  */
@@ -12,6 +12,9 @@
 #include "st_stimulator.h"
 #include "st_protocol.h"
 #include "st_engine.h"
+#include "st_monitor.h"
+#include "st_comm.h"
+#include "st_pulse_stats.h"
 #include "st_hw_config.h"
 
 GPIO_TypeDef fakeGpioE;
@@ -30,6 +33,41 @@ void Error_Handler(void){
 
 static int failures;
 #define CHECK(cond) do { if (!(cond)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); failures++; } } while (0)
+
+/** Stubs of the hardware dependent monitor and serial port */
+static st_pulse_record_t pushed[64];
+static int pushedCount;
+static uint32_t monitorPrescaler;
+static uint8_t monitorReports;
+static uint32_t monitorTrim = DEFAULT_MON_TRIM_US;
+static int16_t monitorWave = -2;		// -2: no request
+
+void stMonitorInit(uint32_t prescaler){ monitorPrescaler = prescaler; }
+void stMonitorStartSampling(void){ }
+void stMonitorPushPulse(const st_pulse_record_t *pulse){
+	if (pushedCount < (int)(sizeof(pushed) / sizeof(pushed[0])))
+		pushed[pushedCount++] = *pulse;
+}
+void stMonitorSetReports(uint8_t enabled){ monitorReports = enabled; }
+uint8_t stMonitorGetReports(void){ return monitorReports; }
+st_status_t stMonitorSetTrim(uint32_t trim){
+	if (trim > MON_TRIM_MAX_US)
+		return ST_ERR_RANGE;
+	monitorTrim = trim;
+	return ST_OK;
+}
+uint32_t stMonitorGetTrim(void){ return monitorTrim; }
+st_status_t stMonitorRequestWave(int16_t ch){
+	if ((ch >= CHAN_LENGTH) || (ch < -1))
+		return ST_ERR_CHANNEL;
+	if (monitorWave != -2)
+		return ST_ERR_BUSY;
+	monitorWave = ch;
+	return ST_OK;
+}
+uint32_t stMonitorLost(void){ return 0; }
+uint8_t stMonitorSyncError(void){ return 0; }
+uint32_t stCommTxDropped(void){ return 0; }
 
 /** Protocol helper */
 static char response[200];
@@ -233,6 +271,165 @@ static void testProtocol(void){
 	EXPECT("STOP", "OK");
 	EXPECT("STATUS", "OK RUN=0");
 	EXPECT("DEFAULT", "OK");
+
+	/* current monitor */
+	EXPECT("MON 1", "OK");
+	CHECK(monitorReports == 1);
+	EXPECT("MON 2", "ERR ARG");
+	EXPECT("MON 0", "OK");
+	CHECK(monitorReports == 0);
+	EXPECT("MONTRIM 10", "OK");
+	CHECK(monitorTrim == 10);
+	EXPECT("MONTRIM 501", "ERR RANGE");
+	EXPECT("STATUS", "OK RUN=0 FRAMES=");
+	EXPECT("WAVE 8", "ERR CHANNEL");
+	EXPECT("WAVE 3", "OK");
+	CHECK(monitorWave == 3);
+	EXPECT("WAVE", "ERR BUSY");
+	monitorWave = -2;
+	EXPECT("WAVE", "OK");
+	CHECK(monitorWave == -1);
+	monitorWave = -2;
+	EXPECT("WAVE x", "ERR ARG");
+}
+
+
+/** Reference statistics computed by sorting */
+static int compareU16(const void *a, const void *b){
+	return (int)*(const uint16_t *)a - (int)*(const uint16_t *)b;
+}
+
+static void referenceStats(const uint16_t *buffer, uint32_t mask, st_window_t window, st_phase_stats_t *stats){
+	static uint16_t sorted[MON_SCRATCH_LENGTH];
+	uint32_t it, sum = 0;
+	memset(stats, 0, sizeof(*stats));
+	if (window.count == 0)
+		return;
+	for (it = 0; it < window.count; it++){
+		sorted[it] = buffer[(window.first + it) & mask];
+		sum += sorted[it];
+	}
+	qsort(sorted, window.count, sizeof(sorted[0]), compareU16);
+	stats->n = (uint16_t)window.count;
+	stats->min = sorted[0];
+	stats->max = sorted[window.count - 1];
+	stats->median = sorted[(window.count - 1) / 2];
+	stats->mean = (uint16_t)((sum + window.count / 2) / window.count);
+}
+
+static int sameStats(const st_phase_stats_t *a, const st_phase_stats_t *b){
+	return (a->n == b->n) && (a->max == b->max) && (a->min == b->min) &&
+			(a->mean == b->mean) && (a->median == b->median);
+}
+
+/** Writes value in the samples taken during the TIM2 interval [from, to) */
+static void fillTimes(uint16_t *buffer, uint32_t from, uint32_t to, uint16_t value){
+	st_window_t w = stWindowFromTimes(from, to, 0);
+	uint32_t it;
+	for (it = 0; it < w.count; it++)
+		buffer[(w.first + it) & (MON_BUFFER_LENGTH - 1)] = value;
+}
+
+static void testStats(void){
+	static uint16_t buffer[MON_BUFFER_LENGTH];
+	static uint16_t scratch[MON_SCRATCH_LENGTH];
+	const uint32_t mask = MON_BUFFER_LENGTH - 1;
+	st_window_t w;
+	st_phase_stats_t stats, reference;
+	st_pulse_stats_t pulseStats;
+	st_pulse_record_t pulse;
+	char line[COMM_LINE_LENGTH];
+	uint32_t n, it, base;
+
+	/* windows: sample k is taken at (k + 1) * 2 us */
+	w = stWindowFromTimes(100, 200, 0);
+	CHECK((w.first == 49) && (w.count == 50));
+	w = stWindowFromTimes(101, 200, 0);
+	CHECK((w.first == 50) && (w.count == 49));
+	w = stWindowFromTimes(100, 200, 4);
+	CHECK((w.first == 51) && (w.count == 46));
+	CHECK(stWindowFromTimes(200, 100, 0).count == 0);
+	CHECK(stWindowFromTimes(100, 110, 6).count == 0);
+	/* across the TIM2 wrap around: 32 us -> 16 samples, contiguous indexes */
+	w = stWindowFromTimes(0xFFFFFFF0U, 0x10U, 0);
+	CHECK(w.count == 16);
+	CHECK(((w.first + 16) & mask) == (stWindowFromTimes(0x10U, 0x20U, 0).first & mask));
+
+	/* statistics against a sorted reference, random data and sizes */
+	srand(1234);
+	for (it = 0; it < MON_BUFFER_LENGTH; it++)
+		buffer[it] = (uint16_t)(rand() % 4096);
+	for (n = 0; n < 600; n += 7){
+		w.first = (uint32_t)rand();
+		w.count = n;
+		stPhaseStats(buffer, mask, w, scratch, &stats);
+		referenceStats(buffer, mask, w, &reference);
+		CHECK(sameStats(&stats, &reference));
+	}
+	/* many repeated values (median selection with duplicates) */
+	for (it = 0; it < MON_BUFFER_LENGTH; it++)
+		buffer[it] = (uint16_t)(rand() % 3);
+	for (n = 1; n < 300; n += 13){
+		w.first = (uint32_t)rand();
+		w.count = n;
+		stPhaseStats(buffer, mask, w, scratch, &stats);
+		referenceStats(buffer, mask, w, &reference);
+		CHECK(sameStats(&stats, &reference));
+	}
+	/* at most MON_SCRATCH_LENGTH samples are used */
+	w.first = 0;
+	w.count = MON_SCRATCH_LENGTH + 100;
+	stPhaseStats(buffer, mask, w, scratch, &stats);
+	CHECK(stats.n == MON_SCRATCH_LENGTH);
+
+	/* synthetic biphasic pulse close to the TIM2 wrap around */
+	base = 0xFFFFFF00U;
+	pulse.frame = 7;
+	pulse.slot = 1;
+	pulse.ch = 3;
+	pulse.positive = 0;
+	pulse.biphasic = 1;
+	pulse.amplitude = 150;
+	pulse.tStart = base;
+	pulse.tTrig = base + 50;
+	pulse.tPhase1 = base + 60;
+	pulse.tFlip = base + 160;
+	pulse.tPhaseEnd = base + 260;
+	pulse.tEnd = base + 310;
+	for (it = 0; it < MON_BUFFER_LENGTH; it++)
+		buffer[it] = 100;											// zero current
+	fillTimes(buffer, pulse.tPhase1, pulse.tFlip, 2000);			// phase 1 plateau
+	fillTimes(buffer, pulse.tFlip, pulse.tPhaseEnd, 1900);			// phase 2 plateau
+	fillTimes(buffer, pulse.tPhase1 + 20, pulse.tPhase1 + 22, 2600);	// one spike
+	fillTimes(buffer, pulse.tFlip + 40, pulse.tFlip + 42, 1500);		// one dip
+	fillTimes(buffer, pulse.tFlip, pulse.tFlip + 2, 300);				// commutation edge, trimmed
+
+	stPulseStats(buffer, mask, &pulse, 4, scratch, &pulseStats);
+	CHECK(pulseStats.baseline == 100);
+	CHECK(pulseStats.phases == 2);
+	CHECK(pulseStats.phase[0].n == 46);					// 100 us = 50 samples - 2 x 4 us trim
+	CHECK(pulseStats.phase[0].max == 2600);
+	CHECK(pulseStats.phase[0].min == 2000);
+	CHECK(pulseStats.phase[0].median == 2000);
+	CHECK(pulseStats.phase[0].mean == (uint16_t)((45 * 2000 + 2600 + 23) / 46));
+	CHECK(pulseStats.phase[1].max == 1900);
+	CHECK(pulseStats.phase[1].min == 1500);				// the 300 edge is trimmed
+	CHECK(pulseStats.phase[1].median == 1900);
+
+	stFormatPulse(line, sizeof(line), &pulse, &pulseStats);
+	snprintf(response, sizeof(response), "P 7 1 3 150 100 - 46 2600 %u 2000 2000 + 46 1900 %u 1900 1500",
+			(unsigned)pulseStats.phase[0].mean, (unsigned)pulseStats.phase[1].mean);
+	CHECK(strcmp(line, response) == 0);
+
+	/* monophasic: a single phase over the whole pulse */
+	pulse.biphasic = 0;
+	pulse.positive = 1;
+	stPulseStats(buffer, mask, &pulse, 0, scratch, &pulseStats);
+	CHECK(pulseStats.phases == 1);
+	CHECK(pulseStats.phase[0].n == 100);
+	CHECK(pulseStats.phase[0].min == 300);
+	stFormatPulse(line, sizeof(line), &pulse, &pulseStats);
+	CHECK(strncmp(line, "P 7 1 3 150 100 + 100 2600 ", 27) == 0);
 }
 
 
@@ -242,11 +439,13 @@ static void testEngine(void){
 	uint16_t dacHalf;
 
 	memset(&fakeTim2, 0, sizeof(fakeTim2));
-	fakeTim2.CNT = 0xFFFFF000U;		// also check the 32 bit wrap around
 	odr = 0;
 	stConfigureDefault();
 	stEngineInit();
 	CHECK(fakeTim2.PSC == 159);
+	CHECK(monitorPrescaler == 159);					// same rate as TIM2
+	CHECK(fakeTim2.CNT == 0);
+	fakeTim2.CNT = 0xFFFFF000U;		// check the 32 bit wrap around
 
 	/* Two slots per frame, 4 ms frame, 3 frames */
 	EXPECT("SEQ 0 1", "OK");
@@ -257,10 +456,30 @@ static void testEngine(void){
 	EXPECT("CH 1 AMP 1000", "OK");
 	EXPECT("CH 1 POL ALT", "OK");
 	resetTrace();
+	pushedCount = 0;
 	EXPECT("RUN 3", "OK");
 	applyOutputs();
 	CHECK(odr & ST_ARM_PIN);
 	simulate(20000);
+
+	/* one record per delivered pulse, with the times of the plan */
+	CHECK(pushedCount == 6);
+	for (n = 0; n < pushedCount; n++){
+		const st_pulse_record_t *p = &pushed[n];
+		CHECK(p->frame == (uint32_t)(n / 2));
+		CHECK(p->slot == n % 2);
+		CHECK(p->ch == n % 2);
+		CHECK(p->amplitude == ((n % 2) ? 1000 : 500));
+		CHECK(p->biphasic == 0);
+		CHECK(p->tTrig - p->tStart == DEFAULT_SETTLE_US);
+		CHECK(p->tPhase1 - p->tTrig == DEFAULT_DS8R_DELAY_US);
+		CHECK(p->tPhaseEnd - p->tPhase1 == DEFAULT_PULSE_US);
+		CHECK(p->tEnd - p->tStart == DEFAULT_SETTLE_US + DEFAULT_DS8R_DELAY_US + DEFAULT_PULSE_US + DEFAULT_TAIL_US);
+		if (n > 0)
+			CHECK(p->tStart - pushed[n - 1].tStart == 2000);
+	}
+	CHECK(pushed[1].positive && !pushed[3].positive && pushed[5].positive);	// CH1 alternates
+	CHECK(pushed[0].positive && pushed[2].positive);
 	checkInvariants();
 	CHECK(stEngineIsRunning() == 0);
 	CHECK(stEngineTakeDoneFlag() == 1);
@@ -298,6 +517,7 @@ static void testEngine(void){
 	EXPECT("CH 0 POL NEG", "OK");
 	EXPECT("CH 0 POL BIPH", "OK");
 	resetTrace();
+	pushedCount = 0;
 	EXPECT("RUN", "OK");
 	simulate(5000);
 	EXPECT("CH 1 EN 0", "OK");
@@ -310,6 +530,9 @@ static void testEngine(void){
 	CHECK(stateAt(t0 + DEFAULT_SETTLE_US) & ST_POL_PIN);
 	CHECK(fallingEdge(ST_POL_PIN, 0) == t0 + DEFAULT_SETTLE_US + DEFAULT_DS8R_DELAY_US + DEFAULT_PULSE_US / 2);
 	CHECK(stateAt(t0 + DEFAULT_SETTLE_US + DEFAULT_DS8R_DELAY_US + DEFAULT_PULSE_US / 2) & ST_NPOL_PIN);
+	CHECK(pushed[0].ch == 0 && pushed[0].biphasic && pushed[0].positive);
+	CHECK(pushed[0].tFlip - pushed[0].tPhase1 == DEFAULT_PULSE_US / 2);
+	CHECK(pushed[0].tPhaseEnd - pushed[0].tFlip == DEFAULT_PULSE_US / 2);
 	/* CH1 stopped pulsing after being disabled */
 	for (n = 0; risingEdge(ST_CH1_PIN, n) >= 0; n++)
 		CHECK(risingEdge(ST_CH1_PIN, n) < (trace[0].t + 5000 + 2000));
@@ -331,6 +554,7 @@ int main(void){
 	testModel();
 	testProtocol();
 	testEngine();
+	testStats();
 	if (failures){
 		printf("%d check(s) failed\n", failures);
 		return 1;

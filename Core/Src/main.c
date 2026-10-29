@@ -26,6 +26,8 @@
 #include "st_engine.h"
 #include "st_comm.h"
 #include "st_protocol.h"
+#include "st_monitor.h"
+#include "st_hw_config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -154,6 +156,12 @@ int main(void)
   BSP_LED_Off(LED_BLUE);
   BSP_LED_Off(LED_RED);
 
+  /* The per pulse reports need more than 115200 baud (set in the .ioc) */
+  BspCOMInit.BaudRate = ST_COMM_BAUDRATE;
+  if ((BSP_COM_DeInit(COM1) != BSP_ERROR_NONE) || (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE))
+  {
+    Error_Handler();
+  }
   stCommInit();
   stCommWriteLine("EVT READY STIMMUX FW=" ST_FW_VERSION);
   lastCommandTick = HAL_GetTick();
@@ -187,6 +195,9 @@ int main(void)
         snprintf(response, sizeof(response), "ERR LENGTH");
       stCommWriteLine(response);
     }
+
+    /* Current monitor: per pulse statistics and waveform requests */
+    stMonitorProcess();
 
     if (stEngineTakeDoneFlag())
     {

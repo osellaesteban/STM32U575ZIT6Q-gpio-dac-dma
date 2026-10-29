@@ -17,6 +17,7 @@
 
 #include "st_engine.h"
 #include "st_stimulator.h"
+#include "st_monitor.h"
 #include "st_hw_config.h"
 
 extern DAC_HandleTypeDef hdac1;
@@ -53,6 +54,7 @@ static st_event_t nextEvent;
 static uint8_t slotBiphasic;
 static uint8_t slotPositive;
 static uint8_t altPhase[CHAN_LENGTH];	// alternate polarity state of each channel
+static st_pulse_record_t pulse;			// pulse in progress, reported to the monitor
 
 
 /** Private functions */
@@ -118,6 +120,19 @@ static uint32_t processEvent(void){
 
 		dacWrite(stAmplitudeToDac(&active, amplitude));
 		ST_PORT->BSRR = BSRR_SET(chPins[ch]) | (slotPositive ? BSRR_POSITIVE : BSRR_NEGATIVE);
+
+		pulse.frame = frameCount;
+		pulse.slot = slot;
+		pulse.ch = ch;
+		pulse.positive = slotPositive;
+		pulse.biphasic = slotBiphasic;
+		pulse.amplitude = amplitude;
+		pulse.tStart = slotStart;
+		pulse.tTrig = slotStart + plan.trigOn;
+		pulse.tPhase1 = pulse.tTrig + active.stDs8rDelay;
+		pulse.tFlip = slotStart + plan.flip;
+		pulse.tPhaseEnd = pulse.tPhase1 + active.stPulse;
+		pulse.tEnd = slotStart + plan.gateOff;
 		nextEvent = EV_TRIG_ON;
 		return slotStart + plan.trigOn;
 	}
@@ -145,6 +160,7 @@ static uint32_t processEvent(void){
 	default:
 		ST_PORT->BSRR = BSRR_RESET(ST_CH_PINS_ALL);
 		dacWrite(0);
+		stMonitorPushPulse(&pulse);
 		return endSlot();
 	}
 }
@@ -167,6 +183,9 @@ void stEngineInit(void){
 	gpio.Pull = GPIO_PULLDOWN;
 	gpio.Speed = GPIO_SPEED_FREQ_MEDIUM;
 	HAL_GPIO_Init(ST_PORT, &gpio);
+
+	/* VDDA is isolated after reset on the STM32U5: required by the DAC and the ADC */
+	HAL_PWREx_EnableVddA();
 
 	/* DAC updated by software (no trigger). The HF interface mode depends on
 	 * HCLK, so it is selected automatically. */
@@ -205,7 +224,13 @@ void stEngineInit(void){
 	TIM2->CCER = 0;
 	TIM2->EGR = TIM_EGR_UG;	// load the prescaler
 	TIM2->SR = 0;
+	TIM2->CNT = 0;
+
+	/* The current monitor samples with a timer that runs at the same rate as
+	 * TIM2 and starts with it, so each sample has a known TIM2 time */
+	stMonitorInit(TIM2->PSC);
 	TIM2->CR1 = TIM_CR1_CEN;
+	stMonitorStartSampling();
 
 	HAL_NVIC_SetPriority(TIM2_IRQn, ST_ENGINE_IRQ_PRIO, 0);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);

@@ -59,6 +59,17 @@
 /** DAC channel connected to the DS8R control input (PA4) */
 #define ST_DAC_CHANNEL		DAC_CHANNEL_1
 
+/** Current monitor: output of the isolated amplifier that measures the
+ *  shunt shared by the SENSE1/SENSE2 pins of all the bridges (0-3.3 V).
+ *  ADC1 is triggered by TIM6 and stores the samples with GPDMA1 channel 0. */
+#define ST_MON_ADC_PORT		GPIOA
+#define ST_MON_ADC_PIN		GPIO_PIN_3		// PA3 = ADC1_IN8 (A0 on the Arduino connector, check UM2861)
+#define ST_MON_ADC_CHANNEL	8U
+#define ST_MON_DMA_CHANNEL	GPDMA1_Channel0
+
+/** Serial port (ST-LINK virtual COM port) */
+#define ST_COMM_BAUDRATE	921600
+
 /** Interrupt priorities (lower number = higher priority) */
 #define ST_ENGINE_IRQ_PRIO	0
 #define ST_COMM_IRQ_PRIO	5

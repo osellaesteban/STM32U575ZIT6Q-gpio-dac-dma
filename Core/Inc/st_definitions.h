@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-#define ST_FW_VERSION		"0.2"
+#define ST_FW_VERSION		"0.3"
 
 /** Model sizes */
 #define CHAN_LENGTH			8		// number of multiplexed channels (one PWD5F60 each)
@@ -36,6 +36,15 @@
 #define MIN_IDLE_US			100		// min. time with all gates open between slots (bootstrap recharge)
 #define MAX_PERIOD_US		10000000UL	// 10 s
 #define ARM_PRECHARGE_US	2000	// SD high and low sides on before the first slot (bootstrap charge)
+
+/** Current monitor (ADC sampling of the stimulation current) */
+#define MON_TS_SHIFT		1		// sampling period = 2^MON_TS_SHIFT us (must be a power of 2)
+#define MON_TS_US			(1UL << MON_TS_SHIFT)
+#define MON_BUFFER_LENGTH	16384	// circular sample buffer (power of 2), 32 ms at 500 kS/s
+#define MON_WAVE_MAX		4096	// max. samples of a requested waveform
+#define MON_SCRATCH_LENGTH	2048	// max. samples used to compute the statistics of a phase
+#define MON_TRIM_MAX_US		500
+#define DEFAULT_MON_TRIM_US	4		// samples excluded at both ends of each phase (edges)
 
 /** Defaults */
 #define DEFAULT_PERIOD_US	25000	// 40 Hz frame
@@ -68,7 +77,8 @@ typedef enum {
 	ST_ERR_RANGE = -2,		// value out of range
 	ST_ERR_TIMING = -3,		// timing configuration is not feasible
 	ST_ERR_ARG = -4,		// malformed argument
-	ST_ERR_BUSY = -5		// not allowed while stimulating
+	ST_ERR_BUSY = -5,		// not allowed while stimulating / operation pending
+	ST_ERR_UNAVAILABLE = -6	// hardware not available (current monitor init failed)
 }st_status_t;
 
 #endif /* INC_ST_DEFINITIONS_H_ */

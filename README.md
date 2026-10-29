@@ -11,8 +11,10 @@ PWD5F60, que además fija la polaridad del pulso en los electrodos.
 | `st_stimulator.c/.h` | Modelo: parámetros por canal (habilitación, amplitud, polaridad, etiqueta) y del frame (período, secuencia, temporización). Valida la configuración. No depende del hardware. |
 | `st_engine.c/.h` | Motor de tiempo real: TIM2 (32 bits, tick de 1 µs) en output compare. Cada interrupción escribe GPIO (una sola escritura a BSRR) y DAC, y programa el evento siguiente. |
 | `st_protocol.c/.h` | Protocolo de comandos ASCII, independiente del hardware. |
-| `st_comm.c/.h` | Recepción por interrupción en USART1 (VCP del ST-LINK) y envío de líneas. |
-| `st_hw_config.h` | Mapeo de pines y prioridades de interrupción. |
+| `st_comm.c/.h` | USART1 (VCP del ST-LINK) con buffers circulares por interrupción en recepción y transmisión: escribir nunca bloquea el bucle principal. |
+| `st_monitor.c/.h` | Monitor de corriente: ADC1 muestrea continuamente a 500 kS/s, calcula estadísticas por fase de cada pulso y envía la forma de onda a pedido. |
+| `st_pulse_stats.c/.h` | Parte del monitor que no depende del hardware: ventanas de muestras, estadísticas y formato de los reportes. |
+| `st_hw_config.h` | Mapeo de pines, baudrate y prioridades de interrupción. |
 
 Un **frame** (período `PERIOD`) se divide en *slots* equiespaciados, uno por
 entrada de la secuencia `SEQ`. Un canal puede repetirse en la secuencia para
@@ -57,6 +59,7 @@ Todas las líneas están en **GPIOE** (las escribe una sola instrucción BSRR).
 | TRIG | PE11 | Entrada de trigger del DS8R (TTL; usar buffer para el cable BNC) |
 | ARM | PE12 | SD1 = SD2 de todos los puentes |
 | DAC1_OUT1 | PA4 | Entrada de control del DS8R (0–10 V) mediante un amplificador ×3 |
+| ADC1_IN8 | PA3 | Salida del amplificador aislado que mide el shunt de corriente (0–3,3 V) |
 
 Según la tabla de verdad del PWD5F60 (DS12543), con SD=1 un medio puente
 enciende su lado alto solo si IN=1 y PWM=1; en cualquier otro caso enciende
@@ -95,6 +98,69 @@ Las entradas del PWD5F60 tienen pull-down interno, así que en reset quedan apag
 5. Verificar en el manual de la NUCLEO-U575ZI-Q (UM2861) que PE7..PE12 estén
    libres en los conectores que se usen.
 
+## Monitor de corriente
+
+### Hardware
+
+- Los pines **SENSE1 y SENSE2** de todos los PWD5F60 (fuentes de los MOSFET
+  del lado bajo) se unen a **un único shunt** contra la GND de los puentes
+  (DS8R−). Como conduce un solo canal por vez, un canal de ADC alcanza, y la
+  corriente atraviesa el shunt siempre en el mismo sentido sin importar la
+  polaridad (también en `BIPH`).
+- El shunt debe dar ≲1 V a la corriente máxima (le resta tensión de
+  compuerta al lado bajo); por ejemplo 10 Ω para un rango de 100 mA.
+- El shunt está del lado del paciente: su tensión llega a PA3 a través de
+  un **amplificador aislado** (tipo AMC1311 o ACPL-C87) que entregue 0–3,3 V.
+- Opcional, protección por hardware: uno de los comparadores del PWD5F60
+  compara el shunt contra un umbral y su salida CPOUT (colector abierto)
+  baja SD.
+
+### Cómo se sincroniza
+
+TIM6 dispara el ADC1 cada 2 µs (500 kS/s, 12 bits) y un GPDMA circular
+guarda las muestras en un buffer de 16384 (32 ms). TIM6 cuenta con el mismo
+prescaler que TIM2 y arranca junto con él, así que la muestra *k* se tomó en
+el instante *(k+1)·2 µs* de TIM2. El motor informa los instantes de cada
+pulso (cierre del puente, trigger, inicio y fin de cada fase, apertura) y el
+bucle principal toma las muestras de cada fase sin leer la posición del DMA.
+Cada 10 ms se verifica que la posición del DMA coincida con la esperada; si
+no coincide, `STATUS` informa `MSYNC=1` y los datos no son confiables.
+
+Las ventanas de cada fase se calculan a partir de `DELAY` y `PW`, así que
+conviene medir el retardo real del DS8R con `WAVE` y ajustar `DELAY`.
+
+### Reporte por pulso (`MON 1`)
+
+Una línea por pulso entregado, en cuentas del ADC (12 bits, sin convertir):
+
+```
+P <frame> <slot> <canal> <amp> <base> <pol> <n> <max> <media> <mediana> <min> [<pol> <n> <max> <media> <mediana> <min>]
+```
+
+- `base`: mediana de las muestras entre el cierre del puente y el trigger,
+  es decir, el cero de corriente (offset del amplificador aislado).
+- Un grupo por fase (dos en `BIPH`). `pol` es `+` o `-` y `n` es la cantidad
+  de muestras usadas. La mediana es la inferior si `n` es par.
+- `MONTRIM <us>` descarta ese tiempo al principio y al final de cada fase,
+  para que los flancos no afecten el mínimo y la media (por defecto 4 µs).
+- Si el puerto no da abasto, se descartan reportes en lugar de frenar la
+  estimulación. `STATUS` cuenta los pulsos sin analizar (`MLOST`) y las
+  líneas descartadas (`TXDROP`).
+
+### Forma de onda a pedido (`WAVE [canal]`)
+
+Captura el próximo pulso entregado (de cualquier canal, o del indicado),
+desde el cierre hasta la apertura del puente (máx. 4096 muestras):
+
+```
+WH <frame> <slot> <canal> <amp> <pol> <bifásico> <ts_us> <n> <i_trig> <i_fase1> <i_inversión> <i_fin>
+WD <índice> <v> <v> ... (24 valores por línea)
+WE
+```
+
+Los índices `i_*` son posiciones dentro de la captura (`i_inversión` = 0 si
+no es bifásico). Hasta que termina el envío, otro `WAVE` responde `ERR BUSY`.
+
 ## Configuración del DS8R
 
 - Modo monofásico, polaridad positiva, ancho de pulso = `PW`.
@@ -106,17 +172,17 @@ Las entradas del PWD5F60 tienen pull-down interno, así que en reset quedan apag
 - Máximo 1000 disparos/s en total con el firmware estándar: el firmware
   rechaza configuraciones con slots de menos de 1 ms.
 
-## Protocolo (USART1 / VCP, 115200 8N1)
+## Protocolo (USART1 / VCP, 921600 8N1)
 
 Una línea por comando (`\r`, `\n` o `\r\n`), una línea de respuesta: `OK ...`
-o `ERR <CHANNEL|RANGE|TIMING|ARG|BUSY|UNKNOWN|LENGTH>`. Las palabras clave no
+o `ERR <CHANNEL|RANGE|TIMING|ARG|BUSY|UNAVAILABLE|UNKNOWN|LENGTH>`. Las palabras clave no
 distinguen mayúsculas. Los argumentos se separan con espacios o comas.
 
 | Comando | Cuándo | Descripción |
 |---|---|---|
 | `PING` | siempre | `OK PONG` |
 | `INFO` | siempre | Versión y límites |
-| `STATUS` | siempre | `OK RUN=<0/1> FRAMES=<n> WDOG=<ms>` |
+| `STATUS` | siempre | `OK RUN=<0/1> FRAMES=<n> WDOG=<ms> MON=<0/1> TRIM=<us> MLOST=<n> TXDROP=<n> MSYNC=<0/1>` |
 | `GET` | siempre | Configuración del frame |
 | `CH <n>` | siempre | `OK CH=n EN= AMP= POL= LABEL=` |
 | `CH <n> EN <0/1>` | tiempo real | Habilita el canal |
@@ -134,9 +200,12 @@ distinguen mayúsculas. Los argumentos se separan con espacios o comas.
 | `RUN [frames]` | detenido | Arranca; sin argumento o 0 = continuo |
 | `STOP` | siempre | Detiene y lleva todo al estado seguro |
 | `WDOG <ms>` | siempre | Si estimula y no llega ningún comando en `ms`, se detiene (0 = desactivado) |
+| `MON <0/1>` | siempre | Reporte de estadísticas por pulso |
+| `MONTRIM <us>` | siempre | Tiempo descartado en los bordes de cada fase (0..500) |
+| `WAVE [canal]` | siempre | Envía la forma de onda del próximo pulso (`ERR UNAVAILABLE` si el ADC no inicializó) |
 
 Mensajes asíncronos: `EVT READY ...`, `EVT DONE FRAMES=<n>`, `EVT WDOG`,
-`EVT STOP BUTTON`. El botón azul de la Nucleo detiene la estimulación.
+`EVT STOP BUTTON`, y los del monitor (`P ...`, `WH`/`WD`/`WE`). El botón azul de la Nucleo detiene la estimulación.
 
 Ejemplo (2 canales a 40 Hz cada uno, el 1 alternando polaridad, 100 frames):
 
@@ -166,6 +235,17 @@ que reflejar estos cambios en el `.ioc`; si no, se pierden:
   `linked_list.c`, que ya no se llama).
 - **No** habilitar en el NVIC de CubeMX las interrupciones de TIM2 ni USART1:
   sus handlers están en `st_engine.c` y `st_comm.c`.
+- **Monitor:** ADC1, TIM6 y GPDMA1 canal 0 se configuran por registros en
+  `st_monitor.c` (el HAL de ADC no está en el proyecto). No asignarlos a otra
+  cosa en CubeMX. Si en el futuro se agrega ADC1 al `.ioc`, conviene migrar
+  `adcInit()` al HAL generado.
+- **VDDA:** el firmware llama a `HAL_PWREx_EnableVddA()`. En el STM32U5 el
+  ADC y el DAC no funcionan hasta que se quita la aislación de VDDA, y el
+  código original no lo hacía, así que es probable que el DAC nunca haya
+  sacado tensión.
+- **Baudrate:** el `.ioc` dice 115200 y el firmware lo cambia a 921600 al
+  iniciar (`ST_COMM_BAUDRATE`), porque los reportes por pulso no entran en
+  115200 a frecuencias altas.
 
 ## Tests en PC
 
@@ -174,7 +254,10 @@ registros simulados (`Tests/host/fake/main.h`) y simula TIM2 con pasos de 1 µs.
 Verifica la temporización de cada evento, la alternancia, el bifásico, el
 salto de canales deshabilitados o con amplitud 0, el fin tras N frames, el
 desborde del contador de 32 bits y estos invariantes: nunca dos canales a la
-vez y nunca trigger sin un puente cerrado.
+vez y nunca trigger sin un puente cerrado. También verifica los registros
+de pulso que el motor entrega al monitor, las ventanas de muestras (incluso
+al desbordar TIM2), las estadísticas contra una referencia ordenada y el
+formato de los reportes.
 
 ```
 sh Tests/host/run_tests.sh            # CC=gcc por defecto
