@@ -4,15 +4,19 @@
  *  Created on: Jan 13, 2025
  *      Author: Osella Esteban
  *
- *      Models the multichannel stimulator.
+ *      Models the multichannel stimulator: per channel parameters and the
+ *      frame configuration (period, sequence of channels and slot timing).
  *
- *      ToDo:
- *      - Design and implement the HAL regarding the DAC
- *      	and GPIO DMA
- *      - Interface and load operative configurations using uart.
- *      - Implement getters.
- *      - Implement stimulation start and stop functions.
- *      - Test implemented functions.
+ *      A frame is divided in evenly spaced slots, one per entry of the
+ *      sequence. In each slot the selected channel bridge is closed, the
+ *      DAC is set to the channel amplitude, the DS8R is triggered and the
+ *      bridge is opened after the pulse:
+ *
+ *      slot start   settle      trig_off      flip (biphasic)   gate_off      next slot
+ *          |----------|------------|----------------|----------------|-----------|
+ *        gates+DAC  TRIG high   TRIG low       bridge reversed    gates open
+ *
+ *      This module has no hardware dependencies.
  */
 
 #ifndef INC_ST_STIMULATOR_H_
@@ -25,109 +29,116 @@
 #include "st_definitions.h"
 
 
-/** public variables**/
+/** public structure definitions **/
+typedef struct st_config{
+	uint32_t stPeriod;			// frame period [us]
+	uint16_t stSettle;			// gates and DAC set before the trigger [us]
+	uint16_t stTrigger;			// trigger pulse width [us]
+	uint16_t stDs8rDelay;		// trigger to DS8R output delay [us]
+	uint16_t stPulse;			// pulse width configured on the DS8R [us]
+	uint16_t stTail;			// margin after the pulse before opening gates [us]
+	uint16_t stDacFullScale;	// DAC counts that produce the DS8R full scale (10 V)
+	uint8_t stSeqLength;
+	uint8_t stSequence[MAX_SLOTS];
+}st_config_t;
+
+/** Event offsets inside a slot, relative to the slot start [us] */
+typedef struct st_slot_plan{
+	uint32_t trigOn;
+	uint32_t trigOff;
+	uint32_t flip;				// only used by biphasic channels
+	uint32_t gateOff;
+	uint32_t spacing;			// slot start to next slot start
+}st_slot_plan_t;
+
 
 /** Public functions **/
-/**
- * Determines the global stimulator status.
- */
-void stSetGlobalState(st_active_t state);
 
 /**
- * Gets the global stimulator status.
+ * Loads the default configuration: all channels disabled with zero
+ * amplitude and positive polarity, sequence 0..CHAN_LENGTH-1.
  */
-void stGetGlobalState(st_active_t *state);
-
+void stConfigureDefault(void);
 
 /**
- * Sets the active state of a particular channel
+ * Sets / gets the active state of a particular channel
  */
-uint8_t stSetChannelState(uint8_t channel,st_active_t state);
+st_status_t stSetChannelState(uint8_t channel, st_active_t state);
+st_status_t stGetChannelState(uint8_t channel, st_active_t *state);
 
 /**
- * Gets the active state of a particular channel
+ * Sets / gets the amplitude of a channel, in per mil of the DS8R full scale.
  */
-uint8_t stGetChannelState(uint8_t channel,st_active_t *state);
+st_status_t stSetChannelAmplitude(uint8_t channel, uint16_t amplitude);
+st_status_t stGetChannelAmplitude(uint8_t channel, uint16_t *amplitude);
 
 /**
- * Gets the label's length of a specific channel
+ * Sets / gets the polarity mode of a channel.
  */
-uint8_t stGetChannelLabelLength(uint8_t chann, uint16_t *length);
+st_status_t stSetChannelPolarity(uint8_t channel, st_polarity_t polarity);
+st_status_t stGetChannelPolarity(uint8_t channel, st_polarity_t *polarity);
 
 /**
- * Assigns a specific label to a channel
+ * Assigns / retrieves a channel label. label must be '\0' terminated.
+ * length is the size of the destination buffer.
  */
-uint8_t stSetChannelLabel(uint8_t chann, char *label, uint16_t length);
+st_status_t stSetChannelLabel(uint8_t chann, const char *label);
+st_status_t stGetChannelLabel(uint8_t chann, char *label, uint16_t length);
 
 /**
- * Gets a specific label to a channel
+ * Frame period in microseconds.
  */
-uint8_t stGetChannelLabel(uint8_t chann, char *label, uint16_t length);
-
+st_status_t stSetPeriod(uint32_t period);
+uint32_t stGetPeriod(void);
 
 /**
- * Determines the period, determining the ARR of the timer.
- * This has to be confirmed when the HAL is finally implemented
+ * Sequence of channels stimulated in each frame. A channel can appear
+ * more than once to obtain a higher rate on it.
  */
-uint8_t stSetPeriod(uint32_t period);
+st_status_t stSetSequence(const uint8_t *sequence, uint8_t length);
+uint8_t stGetSequence(uint8_t *sequence);
 
 /**
- * Stores in period the stimulator period in counts. The stimulator
- * state is reflected in the return value.
+ * Slot timing, in microseconds.
  */
-uint8_t stGetPeriod(uint32_t *period);
+st_status_t stSetTiming(uint16_t settle, uint16_t trigger, uint16_t ds8rDelay, uint16_t tail);
 
 /**
- * Determines the channel stimulating sequence
+ * Pulse width configured on the DS8R. The stimulator can't set it, it is
+ * used to know how long the bridge must stay closed.
  */
-uint8_t stSetSequence(uint8_t*);
+st_status_t stSetPulseWidth(uint16_t pulse);
 
 /**
- * Returns the sequence in the stimulator.
+ * DAC counts that produce 10 V at the DS8R control input (depends on the
+ * gain of the analog stage between the DAC and the DS8R).
  */
-uint8_t stGetSequence(uint8_t * sequence);
+st_status_t stSetDacFullScale(uint16_t counts);
 
 /**
- * Determines the GPIO port to be used by the stimulator.
+ * Read only access to the whole configuration.
  */
-uint8_t stSetPort(uint32_t);
-
-uint8_t stGetPort(uint32_t* );
-/**
- * Determines the GPIO pin to be used to operate the negative port.
- */
-uint8_t stSetSignPort(uint32_t);
+const st_config_t *stGetConfig(void);
 
 /**
- * The sing pin is stored in ret. -1 is returned if stimulator hasn't
- * being initialized
+ * Read only access to a channel. NULL if channel is out of range.
  */
-uint8_t stGetSignPin(uint32_t* ret);
+const st_channel_t *stGetChannel(uint8_t channel);
 
 /**
- * Assigns the trigger pin for the current source
+ * Checks that the configuration can be executed (sequence, DS8R limits,
+ * event spacing). Must be ST_OK before starting the stimulation.
  */
-uint8_t stSetTriggerPin(uint32_t pin);
+st_status_t stValidate(void);
 
 /**
- * Retrieves the current source trigger pin.
+ * Computes the event offsets of a slot from a configuration.
  */
-uint8_t stGetTriggerPin(uint32_t *pin);
-
+void stComputeSlotPlan(const st_config_t *config, st_slot_plan_t *plan);
 
 /**
- * Determines the Pin associated with a specific channel.
+ * Converts an amplitude in per mil into DAC counts.
  */
-uint8_t stSetChannelPin(uint8_t chan,uint32_t port);
-
-/**
- * retrieves a channel specific activation pin
- */
-uint8_t stGetChannelPin(uint8_t chan,uint32_t * pin);
-
-
-uint8_t stSetChannelSignal(uint8_t ch, uint32_t sz, uint16_t* values, uint16_t* signs );
-
-uint8_t stConfigureDefault(st_signal_type type);
+uint16_t stAmplitudeToDac(const st_config_t *config, uint16_t amplitude);
 
 #endif /* INC_ST_STIMULATOR_H_ */

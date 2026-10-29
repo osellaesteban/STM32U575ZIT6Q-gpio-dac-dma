@@ -1,7 +1,7 @@
 /*
  * st_channel.h
  *
- * Each stimulation channel description and operations
+ * Each stimulation channel description.
  *
  *  Created on: Jan 13, 2025
  *      Author: Osella Esteban
@@ -13,25 +13,20 @@
 #include <stdint.h>
 
 /** user includes **/
-#include "st_stimulus.h"
+#include "st_definitions.h"
 
 
 /** public structure definitions**/
-typedef enum {
-	st_disabled = 0, st_enabled, st_undefined
-}st_active_t;
-
+/**
+ * The real time fields (amplitude, state, polarity) are read by the
+ * stimulation engine at the beginning of every slot, so they can be
+ * changed while stimulating. Each one is written with a single store.
+ */
 typedef struct 	st_channel{
-	st_stimulus_t stimulus;
+	volatile uint16_t stAmplitude;	// per mil of the DS8R full scale
+	volatile uint8_t stActiveState;	// st_active_t
+	volatile uint8_t stPolarity;	// st_polarity_t
 	char stLabel[MAX_LABEL];
-	st_active_t stActiveState;
-	uint32_t stPin;
 }st_channel_t;
-
-/** Public variables**/
-
-/** Public functions **/
-
-
 
 #endif /* INC_ST_CHANNEL_H_ */

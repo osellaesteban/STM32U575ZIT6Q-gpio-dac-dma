@@ -22,10 +22,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "linked_list.h"
-
-#include <st_stimulus.h>
 #include "st_stimulator.h"
+#include "st_engine.h"
+#include "st_comm.h"
+#include "st_protocol.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NVALS 16
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,19 +57,11 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
-uint32_t DACVals[NVALS] = {000,4000,0000,4000,
-						   000,000,4000,4000,
-						   000,000,00,00,
-						   4000,4000,4000,4000};
-
-uint32_t GPIOEVals[NVALS] = {
-		PE0_Pin, 	       PE6_Pin, 		  PE2_Pin, 			 PE3_Pin,
-		PE4_Pin,		   PE5_Pin, 	      PE0_Pin | PE6_Pin, PE0_Pin | PE2_Pin,
-		PE0_Pin | PE3_Pin, PE0_Pin | PE4_Pin, PE0_Pin | PE5_Pin, PE6_Pin | PE2_Pin,
-		PE6_Pin | PE3_Pin, PE3_Pin | PE6_Pin, PE6_Pin | PE4_Pin, PE6_Pin | PE5_Pin};
-
-extern DMA_QListTypeDef GPIOQueue;
-extern DMA_QListTypeDef DACQueue;
+/* Only referenced by the CubeMX generated linked_list.c, which is no longer
+ * used (the GPDMA linked lists are never started). Remove both together with
+ * the GPDMA1 linked lists in the .ioc. */
+uint32_t DACVals[1];
+uint32_t GPIOEVals[1];
 
 /* USER CODE END PV */
 
@@ -98,7 +90,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  char line[COMM_LINE_LENGTH];
+  char response[COMM_LINE_LENGTH];
+  uint32_t lastCommandTick;
+  uint32_t watchdog;
+  int8_t received;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -127,30 +123,9 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  //DACDMAConfig();
-  MX_GPIOQueue_Config();
-  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);
-
-  MX_DACQueue_Config();
-  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
-  __HAL_LINKDMA(&hdac1, DMA_Handle1, handle_GPDMA1_Channel10);
-
-  //HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10); // Notice that this channel is Linearly configured instead of Circular.
-
-  // DAC specific DMA channel 10 Falta asignar el canal de DMA que voy a usar luego.
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], 16, DAC_ALIGN_12B_R);
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, 16, DAC_ALIGN_12B_R);
-
- // HAL_TIM_Base_Start(&htim1);
-
-
-
-  stConfigureDefault(st_ramp);
-  st_active_t state = st_enabled;
-  stSetGlobalState(state);
-  state = st_disabled;
-  stGetGlobalState(&state);
+  /* Multiplexer outputs to the safe state as soon as possible */
+  stConfigureDefault();
+  stEngineInit();
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -174,30 +149,14 @@ int main(void)
 
   /* USER CODE BEGIN BSP */
 
-  /* -- Sample board code to send message over COM1 port ---- */
-  printf("Welcome to STM32 world !\n\r");
-
-  /* -- Sample board code to switch on leds ---- */
+  /* LEDs: green = ready, blue = stimulating */
   BSP_LED_On(LED_GREEN);
-  BSP_LED_On(LED_BLUE);
-  BSP_LED_On(LED_RED);
+  BSP_LED_Off(LED_BLUE);
+  BSP_LED_Off(LED_RED);
 
-  HAL_TIM_Base_Start(&htim2);
-/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel11, &GPIOQueue);
-  HAL_DMAEx_List_Start(&handle_GPDMA1_Channel11);*/
-  // GPIOS and DAC output
-  TIM2->DIER |= (TIM_DIER_UDE) |  TIM_DIER_CC1DE;;//(1 << 8);   // set UDE bit (update dma request enable)
-  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t)GPIOEVals, (uint32_t)&(GPIOC->ODR), 16);
-
-  //HAL_DMA_Start(&handle_GPDMA1_Channel10,  (uint32_t *)DACVals, (uint32_t)&(DAC1->DOR1), 16);
- // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)DACVals, NVALS, DAC_ALIGN_12B_R);
-/*  HAL_DMAEx_List_LinkQ(&handle_GPDMA1_Channel10, &DACQueue);
-    HAL_DMAEx_List_Start(&handle_GPDMA1_Channel10);*/
-
-
-  DACDMAConfig();
-  HAL_TIM_Base_Start_IT(&htim2);//(&htim1, TIM_CHANNEL_1);
-
+  stCommInit();
+  stCommWriteLine("EVT READY STIMMUX FW=" ST_FW_VERSION);
+  lastCommandTick = HAL_GetTick();
   /* USER CODE END BSP */
 
   /* Infinite loop */
@@ -205,21 +164,48 @@ int main(void)
   while (1)
   {
 
-    /* -- Sample board code for User push-button in interrupt mode ---- */
+    /* User push-button: local stop */
     if (BspButtonState == BUTTON_PRESSED)
     {
-      /* Update button state */
       BspButtonState = BUTTON_RELEASED;
-      /* -- Sample board code to toggle leds ---- */
-      BSP_LED_Toggle(LED_GREEN);
-      BSP_LED_Toggle(LED_BLUE);
-      BSP_LED_Toggle(LED_RED);
-
-      /* ..... Perform your action ..... */
+      if (stEngineIsRunning())
+      {
+        stEngineStop();
+        stCommWriteLine("EVT STOP BUTTON");
+      }
     }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    received = stCommReadLine(line, sizeof(line));
+    if (received != 0)
+    {
+      lastCommandTick = HAL_GetTick();
+      if (received > 0)
+        stProtocolHandleLine(line, response, sizeof(response));
+      else
+        snprintf(response, sizeof(response), "ERR LENGTH");
+      stCommWriteLine(response);
+    }
+
+    if (stEngineTakeDoneFlag())
+    {
+      snprintf(response, sizeof(response), "EVT DONE FRAMES=%lu", (unsigned long)stEngineFrameCount());
+      stCommWriteLine(response);
+    }
+
+    /* Host watchdog: stop if the controller stops sending commands */
+    watchdog = stProtocolGetWatchdog();
+    if ((watchdog != 0U) && stEngineIsRunning() && ((HAL_GetTick() - lastCommandTick) > watchdog))
+    {
+      stEngineStop();
+      stCommWriteLine("EVT WDOG");
+    }
+
+    if (stEngineIsRunning())
+      BSP_LED_On(LED_BLUE);
+    else
+      BSP_LED_Off(LED_BLUE);
   }
   /* USER CODE END 3 */
 }
@@ -235,12 +221,13 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE4) != HAL_OK)
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
+  * SYSCLK = MSI 4 MHz / M(1) * N(80) / R(2) = 160 MHz
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI
                               |RCC_OSCILLATORTYPE_MSI;
@@ -251,7 +238,16 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.MSICalibrationValue = RCC_MSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_4;
   RCC_OscInitStruct.LSIDiv = RCC_LSI_DIV1;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
+  RCC_OscInitStruct.PLL.PLLMBOOST = RCC_PLLMBOOST_DIV1;
+  RCC_OscInitStruct.PLL.PLLM = 1;
+  RCC_OscInitStruct.PLL.PLLN = 80;
+  RCC_OscInitStruct.PLL.PLLP = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLLVCIRANGE_0;
+  RCC_OscInitStruct.PLL.PLLFRACN = 0;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -262,13 +258,13 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
                               |RCC_CLOCKTYPE_PCLK3;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB3CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -455,9 +451,7 @@ static void MX_TIM2_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
-  uint32_t clkfreq1 = HAL_RCC_GetPCLK1Freq();
-  uint32_t clkfreq2 = HAL_RCC_GetPCLK2Freq();
-
+  /* Prescaler, period and interrupts are reconfigured by stEngineInit() */
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 20-1;
@@ -522,56 +516,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void DACDMAConfig(){
-	 /* Stop DMA transfer */
-	  if(HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1) != HAL_OK)
-	  {
-		Error_Handler();
-	  }
 
-	  /* Deinitialize the DAC peripheral */
-	  if(HAL_DAC_DeInit(&hdac1) != HAL_OK)
-	  {
-		Error_Handler();
-	  }
-	DAC_ChannelConfTypeDef sConfig = {0};
-
-	/* Set DAC instance */
-	hdac1.Instance = DAC1;
-
-	/* Initialize DAC */
-	if (HAL_DAC_Init(&hdac1) != HAL_OK)
-	{
-	/* Initialization Error */
-	Error_Handler();
-	}
-
-	/* Config Channel */
-	sConfig.DAC_Trigger                 = DAC_TRIGGER_T2_TRGO;
-	sConfig.DAC_OutputBuffer            = DAC_OUTPUTBUFFER_ENABLE;
-	sConfig.DAC_SampleAndHold           = DAC_SAMPLEANDHOLD_DISABLE;
-	sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
-
-	/* DAC Channel configuration */
-	if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
-	{
-	/* Channel configuration Error */
-	Error_Handler();
-	}
-
-	/* DAC calibration */
-	if (HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
-	{
-	Error_Handler();
-	}
-
-	/* Enable DAC selected channel and associated DMA */
-	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &DACVals[0], NVALS, DAC_ALIGN_12B_R) != HAL_OK)
-	{
-	/* Start DMA Error */
-	Error_Handler();
-	}
-}
 /* USER CODE END 4 */
 
 /**
@@ -592,9 +537,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   /* USER CODE BEGIN Callback 1 */
 
-  if (htim->Instance == TIM2) {
-	  BSP_LED_Toggle(LED_BLUE);
-  }
   /* USER CODE END Callback 1 */
 }
 
@@ -620,6 +562,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  stEngineEmergencyStop();
   while (1)
   {
   }
